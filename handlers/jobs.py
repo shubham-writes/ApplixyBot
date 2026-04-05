@@ -1,0 +1,152 @@
+"""
+Jobs handlers — view jobs list, job details, and save/unsave jobs.
+"""
+from telegram import Update
+from telegram.ext import ContextTypes
+from loguru import logger
+
+from db.users import get_user, increment_jobs_seen
+from db.jobs import get_matching_jobs, count_matching_jobs, get_job_by_id, save_job, unsave_job
+from db.connection import get_pool
+from services.reset_service import check_and_reset_daily
+from utils.limits import get_limit
+from utils import keyboards, messages
+
+
+async def view_jobs(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /jobs command and 'View Jobs' / pagination buttons."""
+    user_id = update.effective_user.id
+    await check_and_reset_daily(user_id, get_pool())
+    user = await get_user(user_id)
+
+    if not user:
+        if update.callback_query:
+            await update.callback_query.answer()
+            await update.callback_query.edit_message_text("Please /start first.")
+        else:
+            await update.message.reply_text("Please /start first.")
+        return
+
+    skills = user.get("skills", [])
+    location = user.get("location_pref", "remote")
+    plan = user.get("plan", "free")
+    
+    # Determine page number
+    page = 1
+    if update.callback_query and update.callback_query.data.startswith("jobs_page_"):
+        page = int(update.callback_query.data.split("_")[-1])
+
+    limit = get_limit(plan, "jobs_per_day")
+    jobs_seen_today = user.get("jobs_seen_today", 0)
+    offset = (page - 1) * 5
+
+    # Free users: show up to `limit` jobs, but let them re-view anytime
+    # Only block if they try to paginate PAST their daily allowance
+    display_count = 5
+    if plan == "free":
+        # Cap total viewable jobs at their daily limit
+        max_viewable_offset = limit  # e.g. 5 for free
+        if offset >= max_viewable_offset:
+            msg = (
+                "⚠️ You've seen your 5 free jobs for today.\n"
+                "Fresh jobs reset at midnight.\n\n"
+                "Upgrade to Pro (₹99/mo) for unlimited \n"
+                "jobs every day + 10 cover letters/day."
+            )
+            kb = keyboards.InlineKeyboardMarkup([
+                [keyboards.InlineKeyboardButton("💎 Upgrade for ₹99/mo", callback_data="upgrade_pro")],
+                [keyboards.InlineKeyboardButton("⏰ Remind me tomorrow", callback_data="back_menu")]
+            ])
+            if update.callback_query:
+                await update.callback_query.answer()
+                await update.callback_query.edit_message_text(messages.escape_md(msg), reply_markup=kb, parse_mode="MarkdownV2")
+            else:
+                await update.message.reply_text(messages.escape_md(msg), reply_markup=kb, parse_mode="MarkdownV2")
+            return
+        display_count = min(5, max_viewable_offset - offset)
+
+    jobs = await get_matching_jobs(skills, location, limit=display_count, offset=offset, telegram_id=user_id)
+    total_count = await count_matching_jobs(skills, location, telegram_id=user_id)
+
+    # For free users, cap the visible total so pagination stays within their limit
+    if plan == "free":
+        total_count = min(total_count, limit)
+
+    if not jobs:
+        msg = messages.no_jobs_found()
+        back_kb = keyboards.InlineKeyboardMarkup([[keyboards.InlineKeyboardButton("🔙 Back to Menu", callback_data="back_menu")]])
+        if update.callback_query:
+            await update.callback_query.answer()
+            await update.callback_query.edit_message_text(msg, reply_markup=back_kb, parse_mode="MarkdownV2")
+        else:
+            await update.message.reply_text(msg, reply_markup=back_kb, parse_mode="MarkdownV2")
+        return
+
+    msg = messages.format_job_list_message(jobs, plan, total_count, skills, user.get("experience_level", "0"))
+    kb = keyboards.job_list_keyboard(jobs, plan, total_count, page)
+
+    if update.callback_query:
+        await update.callback_query.answer()
+        await update.callback_query.edit_message_text(msg, reply_markup=kb, parse_mode="MarkdownV2", disable_web_page_preview=True)
+    else:
+        await update.message.reply_text(msg, reply_markup=kb, parse_mode="MarkdownV2", disable_web_page_preview=True)
+
+    # Only increment counter on first view of the day (not on re-views)
+    if jobs_seen_today == 0 and page == 1:
+        await increment_jobs_seen(user_id, len(jobs))
+
+
+async def view_job_detail(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show details for a specific job."""
+    query = update.callback_query
+    await query.answer()
+
+    # Data format: job_view_123
+    job_id = int(query.data.split("_")[-1])
+    job = await get_job_by_id(job_id)
+
+    if not job:
+        await query.edit_message_text(
+            messages.error_job_not_found(),
+            reply_markup=keyboards.InlineKeyboardMarkup([[keyboards.InlineKeyboardButton("🔙 Back to Jobs", callback_data="menu_jobs")]]),
+            parse_mode="MarkdownV2"
+        )
+        return
+
+    user_id = update.effective_user.id
+    user = await get_user(user_id)
+    plan = user.get("plan", "free")
+    user_skills = user.get("skills", [])
+    user_exp = user.get("experience_level", "0")
+
+    msg = messages.job_detail_message(job, plan=plan, user_skills=user_skills, user_exp=user_exp)
+    kb = keyboards.job_detail_keyboard(job, plan=plan, user_skills=user_skills)
+
+    await query.edit_message_text(msg, reply_markup=kb, parse_mode="MarkdownV2", disable_web_page_preview=True)
+
+
+async def save_job_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle saving a job."""
+    query = update.callback_query
+    user_id = update.effective_user.id
+    job_id = int(query.data.split("_")[-1])
+
+    saved = await save_job(user_id, job_id)
+    if saved:
+        await query.answer("✅ Job saved!")
+    else:
+        await query.answer("ℹ️ Job already saved.")
+
+
+async def unsave_job_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle unsaving a job (from saved jobs list)."""
+    query = update.callback_query
+    user_id = update.effective_user.id
+    job_id = int(query.data.split("_")[-1])
+
+    await unsave_job(user_id, job_id)
+    await query.answer("🗑 Job removed from saved list.")
+
+    # Refresh saved jobs list after deletion
+    from handlers.settings import view_saved_jobs
+    await view_saved_jobs(update, context)

@@ -1,0 +1,41 @@
+# Environment
+.env
+.env.local
+.env.production
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual env
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# App data
+resumes/
+*.pdf
+
+# Temp files
+*.txt
+!requirements.txt
+!services/Job_titles.txt
+!Modified_plan.txt
+
+# Docs (keep originals)
+# *.docx

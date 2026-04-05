@@ -1,0 +1,40 @@
+# Bot framework
+python-telegram-bot[job-queue]==21.*
+
+# Web server
+fastapi
+uvicorn[standard]
+
+# Database
+asyncpg
+
+# AI (NVIDIA NIM - OpenAI compatible)
+openai
+httpx
+
+# Job data
+feedparser
+
+# Resume parsing
+pypdf
+
+# Auto-apply
+playwright
+
+# Scheduling
+apscheduler
+python-dateutil
+
+# Payments
+razorpay
+
+# Config
+python-dotenv
+pydantic
+pydantic-settings
+
+# Utilities
+loguru
+
+# NLP (ATS analyzer)
+scikit-learn

@@ -1,0 +1,313 @@
+"""
+/start — Onboarding ConversationHandler.
+Flow: Welcome → Skills → Location → Resume Prompt → Complete
+"""
+from telegram import Update
+from telegram.ext import (
+    CommandHandler,
+    CallbackQueryHandler,
+    ConversationHandler,
+    MessageHandler,
+    ContextTypes,
+    filters,
+)
+from loguru import logger
+
+from db.users import get_or_create_user, update_user_profile, update_resume, set_onboarded, get_user
+from services.resume_parser import extract_text_from_pdf, save_resume_file
+from utils import keyboards, messages
+
+# Conversation states
+WELCOME, SKILLS, EXPERIENCE, LOCATION, RESUME_PROMPT, WAITING_RESUME = range(6)
+
+
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handle /start — begin onboarding or show main menu if already onboarded."""
+    user = update.effective_user
+    db_user = await get_or_create_user(user.id, user.username, user.first_name)
+
+    if db_user.get("is_onboarded"):
+        # Returning user → main menu
+        await update.message.reply_text(
+            messages.main_menu(db_user),
+            reply_markup=keyboards.main_menu_keyboard(db_user.get("plan", "free")),
+            parse_mode="MarkdownV2",
+        )
+        return ConversationHandler.END
+
+    # New user → start onboarding
+    context.user_data["selected_skills"] = []
+
+    try:
+        with open("assets/images/Applixy_banner.png", "rb") as banner:
+            await update.message.reply_photo(
+                photo=banner,
+                caption=messages.welcome_message(),
+                reply_markup=keyboards.onboarding_welcome_keyboard(),
+                parse_mode="MarkdownV2",
+            )
+    except FileNotFoundError:
+        logger.warning("Applixy_banner.png not found, falling back to text.")
+        await update.message.reply_text(
+            messages.welcome_message(),
+            reply_markup=keyboards.onboarding_welcome_keyboard(),
+            parse_mode="MarkdownV2",
+        )
+
+    return WELCOME
+
+
+async def welcome_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handle 'Actively Hunting' / 'Just Exploring' selection."""
+    query = update.callback_query
+    await query.answer()
+
+    # Store user intent (not used for logic yet, but trackable)
+    context.user_data["intent"] = query.data  # onboard_hunting or onboard_exploring
+
+    await query.edit_message_text(
+        messages.skills_prompt(),
+        reply_markup=keyboards.skills_keyboard([]),
+        parse_mode="MarkdownV2",
+    )
+    return SKILLS
+
+
+async def skill_toggle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Toggle a skill on/off in the selection grid."""
+    query = update.callback_query
+    await query.answer()
+
+    selected = context.user_data.get("selected_skills", [])
+    # Extract skill name from callback: skill_react, skill_vuejs, etc.
+    skill_raw = query.data.replace("skill_", "")
+
+    # Map callback names back to display names
+    skill_map = {
+        "javascript": "JavaScript",
+        "typescript": "TypeScript",
+        "react": "React",
+        "nextjs": "Next.js",
+        "vue": "Vue",
+        "svelte": "Svelte",
+        "angular": "Angular",
+        "react_native": "React Native",
+        "html": "HTML",
+        "css": "CSS",
+        "tailwind": "Tailwind",
+        "figma": "Figma",
+        "nodejs": "Node.js",
+        "graphql": "GraphQL",
+        "git": "Git",
+        "github": "GitHub",
+        "ci/cd": "CI/CD",
+    }
+
+    skill = skill_map.get(skill_raw, skill_raw)
+
+    if skill.lower() in [s.lower() for s in selected]:
+        selected = [s for s in selected if s.lower() != skill.lower()]
+    else:
+        selected.append(skill)
+
+    context.user_data["selected_skills"] = selected
+
+    await query.edit_message_text(
+        messages.skills_prompt(),
+        reply_markup=keyboards.skills_keyboard(selected),
+        parse_mode="MarkdownV2",
+    )
+    return SKILLS
+
+
+async def skills_done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Save selected skills and move to location selection."""
+    query = update.callback_query
+    await query.answer()
+
+    selected = context.user_data.get("selected_skills", [])
+
+    # Save skills to DB
+    user_id = update.effective_user.id
+    await update_user_profile(user_id, skills=[s.lower() for s in selected])
+
+    await query.edit_message_text(
+        "🧠 How many years of professional experience do you have?",
+        reply_markup=keyboards.experience_keyboard(),
+        parse_mode="MarkdownV2",
+    )
+    return EXPERIENCE
+
+
+async def experience_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Save experience level and prompt for location."""
+    query = update.callback_query
+    await query.answer()
+
+    # Data is like: exp_0, exp_1, exp_2, exp_3_5, exp_5_plus
+    exp_val = query.data.replace("exp_", "")
+    
+    user_id = update.effective_user.id
+    await update_user_profile(user_id, experience_level=exp_val)
+    context.user_data["experience_level"] = exp_val
+
+    await query.edit_message_text(
+        "🌍 Where are you looking for work?",
+        reply_markup=keyboards.location_keyboard(),
+        parse_mode="MarkdownV2",
+    )
+    return LOCATION
+
+
+async def location_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Save location preference and prompt for resume."""
+    query = update.callback_query
+    await query.answer()
+
+    loc_map = {"loc_remote": "remote", "loc_india": "india", "loc_both": "both"}
+    location = loc_map.get(query.data, "remote")
+
+    user_id = update.effective_user.id
+    await update_user_profile(user_id, location_pref=location)
+    context.user_data["location"] = location
+
+    await query.edit_message_text(
+        "📄 Almost done\\!\n\n"
+        "Upload your resume \\(PDF\\) so I can write personalised cover letters for you\\.\n\n"
+        "You can skip this and upload later with /resume",
+        reply_markup=keyboards.resume_prompt_keyboard(),
+        parse_mode="MarkdownV2",
+    )
+    return RESUME_PROMPT
+
+
+async def resume_upload_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """User chose to upload resume — wait for PDF."""
+    query = update.callback_query
+    await query.answer()
+
+    await query.edit_message_text(
+        "📎 Send me your resume as a PDF file \\(max 5MB\\)\\.",
+        parse_mode="MarkdownV2",
+    )
+    return WAITING_RESUME
+
+
+async def resume_received(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Process uploaded resume PDF."""
+    document = update.message.document
+
+    if not document or not document.file_name.lower().endswith(".pdf"):
+        await update.message.reply_text(
+            "⚠️ Please upload a PDF file\\.",
+            parse_mode="MarkdownV2",
+        )
+        return WAITING_RESUME
+
+    if document.file_size > 5 * 1024 * 1024:
+        await update.message.reply_text(
+            "⚠️ File too large\\. Maximum size is 5MB\\.",
+            parse_mode="MarkdownV2",
+        )
+        return WAITING_RESUME
+
+    try:
+        file = await document.get_file()
+        file_bytes = await file.download_as_bytearray()
+
+        # Save file to disk first
+        user_id = update.effective_user.id
+        saved_path = save_resume_file(user_id, bytes(file_bytes), document.file_name)
+
+        # Extract text from the saved file
+        resume_text = extract_text_from_pdf(saved_path)
+
+        # Update DB 
+        await update_resume(user_id, resume_text, document.file_name)
+
+        await update.message.reply_text(
+            messages.resume_uploaded_success(document.file_name),
+            parse_mode="MarkdownV2",
+        )
+
+    except ValueError as e:
+        await update.message.reply_text(
+            f"⚠️ {str(e)}",
+        )
+        return WAITING_RESUME
+
+    return await _complete_onboarding(update, context, has_resume=True)
+
+
+async def resume_skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """User skipped resume upload."""
+    query = update.callback_query
+    await query.answer()
+    return await _complete_onboarding(update, context, has_resume=False, query=query)
+
+
+async def _complete_onboarding(
+    update: Update, context: ContextTypes.DEFAULT_TYPE,
+    has_resume: bool = False, query=None,
+) -> int:
+    """Finish onboarding — show summary and main menu."""
+    user_id = update.effective_user.id
+    await set_onboarded(user_id)
+
+    skills = context.user_data.get("selected_skills", [])
+    location = context.user_data.get("location", "remote")
+
+    msg = messages.onboarding_complete(skills, location, has_resume)
+    kb = keyboards.onboarding_complete_keyboard()
+
+    if query:
+        await query.edit_message_text(msg, reply_markup=kb, parse_mode="MarkdownV2")
+    else:
+        await update.message.reply_text(msg, reply_markup=kb, parse_mode="MarkdownV2")
+
+    logger.info(f"User {user_id} completed onboarding: skills={skills}, loc={location}")
+    return ConversationHandler.END
+
+
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Cancel onboarding and return to menu."""
+    user = await get_user(update.effective_user.id)
+    plan = user.get("plan", "free") if user else "free"
+    
+    await update.message.reply_text(
+        messages.main_menu(user),
+        reply_markup=keyboards.main_menu_keyboard(plan),
+        parse_mode="MarkdownV2",
+    )
+    return ConversationHandler.END
+
+
+def get_start_handler() -> ConversationHandler:
+    """Build the /start ConversationHandler."""
+    return ConversationHandler(
+        entry_points=[CommandHandler("start", start_command)],
+        states={
+            WELCOME: [
+                CallbackQueryHandler(welcome_callback, pattern="^onboard_"),
+            ],
+            SKILLS: [
+                CallbackQueryHandler(skill_toggle, pattern="^skill_"),
+                CallbackQueryHandler(skills_done, pattern="^skills_done$"),
+            ],
+            EXPERIENCE: [
+                CallbackQueryHandler(experience_callback, pattern="^exp_"),
+            ],
+            LOCATION: [
+                CallbackQueryHandler(location_callback, pattern="^loc_"),
+            ],
+            RESUME_PROMPT: [
+                CallbackQueryHandler(resume_upload_prompt, pattern="^resume_upload$"),
+                CallbackQueryHandler(resume_skip, pattern="^resume_skip$"),
+            ],
+            WAITING_RESUME: [
+                MessageHandler(filters.Document.PDF, resume_received),
+            ],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+        per_message=False,
+    )
