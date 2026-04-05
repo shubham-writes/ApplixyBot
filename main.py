@@ -74,6 +74,18 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="ApplixyBot API", lifespan=lifespan)
 
 
+@app.get("/health")
+async def health_check():
+    """Railway healthcheck endpoint."""
+    return {"status": "ok", "bot": "ApplixyBot"}
+
+
+@app.get("/")
+async def root():
+    """Root endpoint."""
+    return {"status": "ok", "service": "ApplixyBot API"}
+
+
 @app.post("/telegram-webhook")
 async def telegram_webhook(request: Request):
     """Receive updates from Telegram in production."""
