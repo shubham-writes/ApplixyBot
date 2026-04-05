@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ApplixyBot - Supercharge Your Job Hunt</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease-in-out; }
+        .tab-btn.active { border-bottom: 2px solid #3b82f6; color: #1e3a8a; font-weight: 600; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <!-- Header -->
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="text-2xl font-bold text-blue-600 flex items-center gap-2">
+                🤖 ApplixyBot
+            </div>
+            <a href="https://t.me/ApplixyBot" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition">
+                Open in Telegram
+            </a>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="max-w-5xl mx-auto px-4 py-16 text-center">
+        <h1 class="text-4xl md:text-5xl font-extrabold text-slate-900 mb-6">Stop searching. Start interviewing.</h1>
+        <p class="text-xl text-slate-600 mb-8 max-w-2xl mx-auto">ApplixyBot is an AI-powered Telegram assistant that automatically finds frontend jobs, generates tailored cover letters, and acts as your personal job-hunting chief of staff.</p>
+    </section>
+
+    <!-- Navigation Tabs for Policies -->
+    <div class="max-w-5xl mx-auto px-4 mb-8">
+        <div class="flex flex-wrap border-b border-gray-200 gap-4 md:gap-8">
+            <button onclick="switchTab('pricing')" class="tab-btn active pb-2 text-slate-500 hover:text-slate-800 transition">Pricing</button>
+            <button onclick="switchTab('contact')" class="tab-btn pb-2 text-slate-500 hover:text-slate-800 transition">Contact Us</button>
+            <button onclick="switchTab('terms')" class="tab-btn pb-2 text-slate-500 hover:text-slate-800 transition">Terms & Conditions</button>
+            <button onclick="switchTab('privacy')" class="tab-btn pb-2 text-slate-500 hover:text-slate-800 transition">Privacy Policy</button>
+            <button onclick="switchTab('refund')" class="tab-btn pb-2 text-slate-500 hover:text-slate-800 transition">Refund & Cancellation</button>
+        </div>
+    </div>
+
+    <!-- Content Sections -->
+    <main class="max-w-5xl mx-auto px-4 pb-20">
+        
+        <!-- Pricing -->
+        <div id="pricing" class="tab-content active bg-white p-8 rounded-xl shadow-sm border border-slate-100">
+            <h2 class="text-3xl font-bold mb-6">Pricing Plans</h2>
+            <div class="grid md:grid-cols-2 gap-8">
+                <!-- Free -->
+                <div class="border rounded-lg p-6 bg-slate-50">
+                    <h3 class="text-xl font-bold mb-2">Free Tier</h3>
+                    <p class="text-3xl font-extrabold mb-4">₹0<span class="text-lg font-normal text-slate-500">/mo</span></p>
+                    <ul class="space-y-2 mb-6">
+                        <li>✔️ Daily curated job matches</li>
+                        <li>✔️ Basic ATS Resume checking</li>
+                        <li>✔️ Up to 3 AI Cover Letters / day</li>
+                    </ul>
+                </div>
+                <!-- Pro -->
+                <div class="border-2 border-blue-500 rounded-lg p-6 bg-white relative">
+                    <div class="absolute top-0 right-0 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg rounded-tr-md">POPULAR</div>
+                    <h3 class="text-xl font-bold mb-2">Pro Plan</h3>
+                    <p class="text-3xl font-extrabold mb-4">₹99<span class="text-lg font-normal text-slate-500">/mo</span></p>
+                    <ul class="space-y-2 mb-6">
+                        <li>✔️ Unlimited AI Cover Letters</li>
+                        <li>✔️ Deep ATS scoring & keyword gaps</li>
+                        <li>✔️ Unlimited Job Aggregation</li>
+                        <li>✔️ Smart tracking reminders</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contact Us -->
+        <div id="contact" class="tab-content bg-white p-8 rounded-xl shadow-sm border border-slate-100">
+            <h2 class="text-3xl font-bold mb-6">Contact Us</h2>
+            <p class="mb-4">If you have any questions or require support regarding ApplixyBot, please reach out to us. We typically respond within 24 hours.</p>
+            <div class="space-y-2">
+                <p><strong>Email:</strong> support@applixybot.com</p>
+                <p><strong>Operating Address:</strong> [YOUR EXACT CITY/STATE/COUNTRY, E.G., Mumbai, Maharashtra, India]</p>
+                <p><strong>Support Channel:</strong> You can also reach out to the developer directly via Telegram at any time.</p>
+            </div>
+        </div>
+
+        <!-- Terms & Conditions -->
+        <div id="terms" class="tab-content bg-white p-8 rounded-xl shadow-sm border border-slate-100 prose max-w-none">
+            <h2 class="text-3xl font-bold mb-6">Terms & Conditions</h2>
+            <p class="mb-4">Last Updated: April 2026</p>
+            <h3 class="font-bold text-lg mt-6 mb-2">1. Introduction</h3>
+            <p class="mb-4">By using ApplixyBot ("the Service"), you agree to be bound by these terms. If you disagree with any part of the terms, then you may not access the Service.</p>
+            <h3 class="font-bold text-lg mt-6 mb-2">2. Service Usage</h3>
+            <p class="mb-4">ApplixyBot provides AI-generated content (cover letters, ATS analysis). We do not guarantee job placement or the absolute accuracy of AI-generated content. Users are responsible for reviewing generated documents before sending them to employers.</p>
+            <h3 class="font-bold text-lg mt-6 mb-2">3. Subscription and Billing</h3>
+            <p class="mb-4">Some features are billed on a subscription basis ("Pro Plan"). You will be billed in advance on a recurring monthly schedule. All payments are securely processed via Razorpay.</p>
+            <h3 class="font-bold text-lg mt-6 mb-2">4. User Content</h3>
+            <p class="mb-4">You retain all rights to your personal resume. By uploading a resume, you grant us the right to temporarily process it through our LLM providers to generate cover letters and analysis for you.</p>
+        </div>
+
+        <!-- Privacy Policy -->
+        <div id="privacy" class="tab-content bg-white p-8 rounded-xl shadow-sm border border-slate-100 prose max-w-none">
+            <h2 class="text-3xl font-bold mb-6">Privacy Policy</h2>
+            <p class="mb-4">Last Updated: April 2026</p>
+            <h3 class="font-bold text-lg mt-6 mb-2">1. Data Collection</h3>
+            <p class="mb-4">We collect your Telegram ID, Name, and Username solely for communicating with you and organizing your account. If you upload a resume, we securely temporarily store it for processing.</p>
+            <h3 class="font-bold text-lg mt-6 mb-2">2. How we use data</h3>
+            <p class="mb-4">We use your resume text to prompt AI models (like LLaMA via NVIDIA) to generate customized cover letters. We do not sell your personal data to third parties or recruiters.</p>
+            <h3 class="font-bold text-lg mt-6 mb-2">3. Payment Information</h3>
+            <p class="mb-4">We do not store your credit card details. All payment processing is handled securely by Razorpay.</p>
+            <h3 class="font-bold text-lg mt-6 mb-2">4. Data Deletion</h3>
+            <p class="mb-4">You can request the deletion of your account and associated resume PDF files at any time via the bot settings.</p>
+        </div>
+
+        <!-- Refund Policy -->
+        <div id="refund" class="tab-content bg-white p-8 rounded-xl shadow-sm border border-slate-100 prose max-w-none">
+            <h2 class="text-3xl font-bold mb-6">Refund & Cancellation Policy</h2>
+            <p class="mb-4">Last Updated: April 2026</p>
+            <h3 class="font-bold text-lg mt-6 mb-2">Cancellation</h3>
+            <p class="mb-4">You can cancel your Pro subscription at any time. Upon cancellation, you will continue to have access to the Pro features until the end of your current billing cycle.</p>
+            <h3 class="font-bold text-lg mt-6 mb-2">Refunds</h3>
+            <p class="mb-4">Because ApplixyBot incurs immediate API costs when generating AI content, all subscription payments are strictly non-refundable. We do not provide prorated refunds for partially used billing cycles. If you experience technical issues preventing you from receiving the service, please contact us within 7 days for review.</p>
+        </div>
+
+    </main>
+
+    <footer class="bg-slate-900 text-slate-400 py-8 text-center">
+        <p>© 2026 ApplixyBot. All rights reserved.</p>
+    </footer>
+
+    <script>
+        function switchTab(tabId) {
+            // Hide all contents
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            // Remove active style from all buttons
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            
+            // Show selected content
+            document.getElementById(tabId).classList.add('active');
+            // Add active style to clicked button
+            event.currentTarget.classList.add('active');
+        }
+    </script>
+</body>
+</html>

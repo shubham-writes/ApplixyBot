@@ -80,10 +80,14 @@ async def health_check():
     return {"status": "ok", "bot": "ApplixyBot"}
 
 
-@app.get("/")
+from fastapi.responses import HTMLResponse
+
+@app.get("/", response_class=HTMLResponse)
 async def root():
-    """Root endpoint."""
-    return {"status": "ok", "service": "ApplixyBot API"}
+    """Root endpoint — serves Razorpay compliance landing page."""
+    from pathlib import Path
+    html_path = Path(__file__).parent / "templates" / "index.html"
+    return html_path.read_text(encoding="utf-8")
 
 
 @app.post("/telegram-webhook")
