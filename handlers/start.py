@@ -16,6 +16,7 @@ from loguru import logger
 from db.users import get_or_create_user, update_user_profile, update_resume, set_onboarded, get_user
 from services.resume_parser import extract_text_from_pdf, save_resume_file
 from utils import keyboards, messages
+from utils.admin_notify import notify_admin
 
 # Conversation states
 WELCOME, SKILLS, EXPERIENCE, LOCATION, RESUME_PROMPT, WAITING_RESUME = range(6)
@@ -37,6 +38,15 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
     # New user → start onboarding
     context.user_data["selected_skills"] = []
+
+    # 🔔 Notify admin about new user
+    username_str = f"@{user.username}" if user.username else "(no username)"
+    await notify_admin(
+        context.bot,
+        f"🆕 <b>New User Joined!</b>\n"
+        f"👤 {user.first_name} {username_str}\n"
+        f"🆔 ID: <code>{user.id}</code>"
+    )
 
     try:
         with open("assets/images/Applixy_banner.png", "rb") as banner:
@@ -252,10 +262,12 @@ async def _complete_onboarding(
 ) -> int:
     """Finish onboarding — show summary and main menu."""
     user_id = update.effective_user.id
+    user_tg = update.effective_user
     await set_onboarded(user_id)
 
     skills = context.user_data.get("selected_skills", [])
     location = context.user_data.get("location", "remote")
+    exp = context.user_data.get("experience_level", "?")
 
     msg = messages.onboarding_complete(skills, location, has_resume)
     kb = keyboards.onboarding_complete_keyboard()
@@ -264,6 +276,20 @@ async def _complete_onboarding(
         await query.edit_message_text(msg, reply_markup=kb, parse_mode="MarkdownV2")
     else:
         await update.message.reply_text(msg, reply_markup=kb, parse_mode="MarkdownV2")
+
+    # 🔔 Notify admin — user finished onboarding
+    username_str = f"@{user_tg.username}" if user_tg.username else "(no username)"
+    skills_str = ", ".join(skills) if skills else "none selected"
+    resume_str = "✅ Uploaded" if has_resume else "⏭️ Skipped"
+    await notify_admin(
+        context.bot,
+        f"✅ <b>User Onboarded!</b>\n"
+        f"👤 {user_tg.first_name} {username_str}\n"
+        f"🆔 ID: <code>{user_id}</code>\n"
+        f"🛠 Skills: {skills_str}\n"
+        f"📍 Location: {location} | Exp: {exp} yrs\n"
+        f"📄 Resume: {resume_str}"
+    )
 
     logger.info(f"User {user_id} completed onboarding: skills={skills}, loc={location}")
     return ConversationHandler.END

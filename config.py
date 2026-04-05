@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     # Telegram
     TELEGRAM_BOT_TOKEN: str
     WEBHOOK_URL: str = ""  # Only needed in production
+    ADMIN_TELEGRAM_ID: int = 0  # Your personal Telegram ID for admin alerts
 
     # Database (Supabase PostgreSQL)
     DATABASE_URL: str
