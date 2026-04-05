@@ -52,8 +52,8 @@ async def ats_analyze_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE)
     # Check resume first (regardless of plan)
     if not user.get("resume_text"):
         await query.edit_message_text(
-            "📄 Please upload your resume first with /resume\.\n"
-            "I need it to compare against the job description\.",
+            r"📄 Please upload your resume first with /resume\." "\n"
+            r"I need it to compare against the job description\.",
             parse_mode="MarkdownV2"
         )
         return
@@ -64,11 +64,11 @@ async def ats_analyze_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if not can_run:
         if plan == "free":
             await query.edit_message_text(
-                "*You've used your 1 free ATS check today\.*\n\n"
-                "Pro users check up to *5 resumes/day* — enough\n"
-                "for every job worth applying to\.\n\n"
-                "Also unlocks: unlimited jobs, 10 cover letters/day,\n"
-                "match scores, and application tracking\.",
+                r"*You've used your 1 free ATS check today\.*\n\n"
+                r"Pro users check up to *5 resumes/day* — enough\n"
+                r"for every job worth applying to\.\n\n"
+                r"Also unlocks: unlimited jobs, 10 cover letters/day,\n"
+                r"match scores, and application tracking\.",
                 parse_mode="MarkdownV2",
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("💎 All of this for ₹99/mo", callback_data="upgrade_pro")],
@@ -78,8 +78,8 @@ async def ats_analyze_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE)
         else:
             # Pro limit (5/day)
             await query.edit_message_text(
-                "*You've used all 5 ATS checks for today\.*\n\n"
-                "Your daily limit resets at midnight\. Come back tomorrow\!",
+                r"*You've used all 5 ATS checks for today\.*" "\n\n"
+                r"Your daily limit resets at midnight\. Come back tomorrow\!",
                 parse_mode="MarkdownV2",
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("🔙 Back", callback_data="back_menu")]
@@ -90,15 +90,15 @@ async def ats_analyze_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE)
     # Show taste message for free users (first/only check)
     if plan == "free":
         await query.edit_message_text(
-            "📊 *ATS Resume Analyzer* \\— Free Preview\n\n"
-            "This is your *1 free check today*\. Paste the full Job Description below and I'll analyze your resume against it with AI\.",
+            r"📊 *ATS Resume Analyzer* \— Free Preview" "\n\n"
+            r"This is your *1 free check today*\. Paste the full Job Description below and I'll analyze your resume against it with AI\.",
             parse_mode="MarkdownV2"
         )
     else:
         checks_left = 5 - used_today
         await query.edit_message_text(
-            f"📊 *ATS Resume Analyzer*\n\n"
-            f"Paste the full Job Description below\. \\({checks_left} checks remaining today\\)",
+            r"📊 *ATS Resume Analyzer*" "\n\n"
+            rf"Paste the full Job Description below\. \({checks_left} checks remaining today\)",
             parse_mode="MarkdownV2"
         )
 
@@ -119,7 +119,7 @@ async def ats_analyze_result(update: Update, context: ContextTypes.DEFAULT_TYPE)
         resume_text = user.get("resume_text", "")
         jd_text = update.message.text
 
-        await update.message.reply_text("⏳ Analyzing with AI — this takes ~15 seconds\\.\.\\.", parse_mode="MarkdownV2")
+        await update.message.reply_text(r"⏳ Analyzing with AI — this takes ~15 seconds\.\.\.", parse_mode="MarkdownV2")
 
         result = await analyze_resume_match(resume_text, jd_text)
         msg = messages.ats_result(result)

@@ -34,8 +34,16 @@ async def lifespan(app: FastAPI):
     # 2. Start Bot
     await bot_app.initialize()
     if settings.ENVIRONMENT == "production":
-        logger.info(f"Setting webhook URL: {settings.WEBHOOK_URL}")
-        await bot_app.bot.set_webhook(url=f"{settings.WEBHOOK_URL}/telegram-webhook")
+        import os
+        webhook = settings.WEBHOOK_URL or os.getenv("RAILWAY_PUBLIC_DOMAIN") or ""
+        if not webhook:
+            raise ValueError("CRITICAL: WEBHOOK_URL is missing. Please set it in Railway variables!")
+            
+        webhook = webhook if webhook.startswith("http") else f"https://{webhook}"
+        webhook = webhook.rstrip('/')
+        
+        logger.info(f"Setting webhook URL: {webhook}")
+        await bot_app.bot.set_webhook(url=f"{webhook}/telegram-webhook")
     else:
         logger.info("Polling mode enabled (development).")
         # In dev, we start polling natively
