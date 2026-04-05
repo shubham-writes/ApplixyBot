@@ -59,9 +59,10 @@ async def lifespan(app: FastAPI):
     logger.info("🛑 Shutting down ApplixyBot...")
     stop_scheduler()
     
-    if settings.ENVIRONMENT == "production":
-        await bot_app.bot.delete_webhook()
-    else:
+    
+    # We consciously avoid deleting the webhook on production shutdown 
+    # to prevent breaking Railway's zero-downtime deploys when the old container dies.
+    if settings.ENVIRONMENT != "production":
         await bot_app.updater.stop()
         
     await bot_app.stop()
