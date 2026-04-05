@@ -78,7 +78,7 @@ def verify_webhook_signature(payload: bytes, signature: str) -> bool:
         client.utility.verify_webhook_signature(
             payload.decode("utf-8"),
             signature,
-            settings.RAZORPAY_KEY_SECRET,
+            settings.RAZORPAY_WEBHOOK_SECRET,
         )
         return True
     except Exception as e:

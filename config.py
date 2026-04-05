@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     # Payments — Razorpay
     RAZORPAY_KEY_ID: str = ""
     RAZORPAY_KEY_SECRET: str = ""
+    RAZORPAY_WEBHOOK_SECRET: str = ""  # Separate secret you set in Razorpay webhook config
 
     # App Config
     ENVIRONMENT: str = "development"
