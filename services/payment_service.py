@@ -45,7 +45,7 @@ async def create_payment_link(plan: str, telegram_id: int) -> str | None:
         payment_link = client.payment_link.create({
             "amount": plan_info["amount"],
             "currency": "INR",
-            "description": f"ApplixyBot {plan_info['name']} Plan — Monthly Subscription",
+            "description": f"ApplixyBot {plan_info['name']} Plan — 1 Month Access",
             "reference_id": unique_ref,
             "notes": {
                 "telegram_id": str(telegram_id),

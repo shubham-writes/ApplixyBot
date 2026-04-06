@@ -13,7 +13,7 @@ def welcome_message() -> str:
     return (
         "🤖 *Welcome to ApplixyBot\\!*\n\n"
         "I help frontend developers find jobs, write cover letters, "
-        "and auto\\-apply — all inside Telegram\\.\n\n"
+        "and ace interviews — all inside Telegram\\.\n\n"
         "Let's set up your profile in 2 minutes\\.\n\n"
         "What best describes you?"
     )
