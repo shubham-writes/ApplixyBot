@@ -75,8 +75,16 @@ async def welcome_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     # Store user intent (not used for logic yet, but trackable)
     context.user_data["intent"] = query.data  # onboard_hunting or onboard_exploring
 
-    await query.edit_message_text(
-        messages.skills_prompt(),
+    # The welcome message may be a photo (banner) or text (fallback).
+    # We can't edit_message_text on a photo, so delete and send fresh.
+    try:
+        await query.message.delete()
+    except Exception:
+        pass  # If delete fails, just continue
+
+    await context.bot.send_message(
+        chat_id=query.from_user.id,
+        text=messages.skills_prompt(),
         reply_markup=keyboards.skills_keyboard([]),
         parse_mode="MarkdownV2",
     )
