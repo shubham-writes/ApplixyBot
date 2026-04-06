@@ -100,8 +100,21 @@ async def telegram_webhook(request: Request):
     json_data = await request.json()
     update = Update.de_json(json_data, bot_app.bot)
     
-    # Process update
-    await bot_app.process_update(update)
+    # Log what we received
+    update_type = "unknown"
+    if update.message:
+        update_type = f"message: {update.message.text or '(non-text)'}"
+    elif update.callback_query:
+        update_type = f"callback: {update.callback_query.data}"
+    logger.info(f"Webhook received: {update_type} from user {update.effective_user.id if update.effective_user else '?'}")
+    
+    # Process update with error catching
+    try:
+        await bot_app.process_update(update)
+    except Exception as e:
+        logger.error(f"Error processing update: {e}", exc_info=True)
+        return {"status": "error", "message": str(e)}
+    
     return {"status": "ok"}
 
 
