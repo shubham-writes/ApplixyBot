@@ -7,6 +7,7 @@ from loguru import logger
 
 from db.users import get_user, increment_jobs_seen
 from db.jobs import get_matching_jobs, count_matching_jobs, get_job_by_id, save_job, unsave_job
+from db.manual_jobs import get_manual_jobs, get_manual_job_by_id
 from db.connection import get_pool
 from services.reset_service import check_and_reset_daily
 from utils.limits import get_limit
@@ -65,8 +66,27 @@ async def view_jobs(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             return
         display_count = min(5, max_viewable_offset - offset)
 
-    jobs = await get_matching_jobs(skills, location, limit=display_count, offset=offset, telegram_id=user_id)
-    total_count = await count_matching_jobs(skills, location, telegram_id=user_id)
+    # 1. Fetch manual jobs (unpaginated from DB, we paginate in Python)
+    all_manual_jobs = await get_manual_jobs(skills=skills, location=location, limit=50)
+    # Exclude jobs already applied to (simplistic check if we had applied status, but for now just show them)
+    # Alternatively we can just use all_manual_jobs as is.
+    M = len(all_manual_jobs)
+    
+    scraped_offset = max(0, offset - M)
+    scraped_limit = display_count
+    if offset < M:
+        scraped_limit = display_count - (M - offset)
+        
+    scraped_jobs = []
+    if scraped_limit > 0:
+        scraped_jobs = await get_matching_jobs(skills, location, limit=scraped_limit, offset=scraped_offset, telegram_id=user_id)
+
+    # Combine manual jobs (sliced) and scraped jobs
+    manual_slice = all_manual_jobs[offset : offset + display_count]
+    jobs = manual_slice + scraped_jobs
+    
+    scraped_total = await count_matching_jobs(skills, location, telegram_id=user_id)
+    total_count = M + scraped_total
 
     # For free users, cap the visible total so pagination stays within their limit
     if plan == "free":
@@ -82,7 +102,7 @@ async def view_jobs(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await update.message.reply_text(msg, reply_markup=back_kb, parse_mode="MarkdownV2")
         return
 
-    msg = messages.format_job_list_message(jobs, plan, total_count, skills, user.get("experience_level", "0"))
+    msg = messages.format_job_list_message(jobs, plan, total_count, user=user)
     kb = keyboards.job_list_keyboard(jobs, plan, total_count, page)
 
     if update.callback_query:
@@ -101,9 +121,15 @@ async def view_job_detail(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     query = update.callback_query
     await query.answer()
 
-    # Data format: job_view_123
-    job_id = int(query.data.split("_")[-1])
-    job = await get_job_by_id(job_id)
+    # Data format: job_view_123 or manual_view_123
+    data_parts = query.data.split("_")
+    job_id = int(data_parts[-1])
+    is_manual = "manual" in query.data
+
+    if is_manual:
+        job = await get_manual_job_by_id(job_id)
+    else:
+        job = await get_job_by_id(job_id)
 
     if not job:
         await query.edit_message_text(
@@ -119,7 +145,7 @@ async def view_job_detail(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     user_skills = user.get("skills", [])
     user_exp = user.get("experience_level", "0")
 
-    msg = messages.job_detail_message(job, plan=plan, user_skills=user_skills, user_exp=user_exp)
+    msg = messages.job_detail_message(job, plan=plan, user=user)
     kb = keyboards.job_detail_keyboard(job, plan=plan, user_skills=user_skills)
 
     await query.edit_message_text(msg, reply_markup=kb, parse_mode="MarkdownV2", disable_web_page_preview=True)

@@ -24,6 +24,7 @@ from handlers.tracker import (
     mark_applied_callback, tracker_dashboard, weekly_summary,
     manage_app_callback, update_app_status_callback
 )
+from handlers.admin import get_addjob_handler
 
 from utils.messages import help_message
 
@@ -55,6 +56,9 @@ def build_bot() -> Application:
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("delete_account", delete_account_prompt))
 
+    # Admin Handlers
+    app.add_handler(get_addjob_handler())
+
     # Navigation Callbacks
     app.add_handler(CallbackQueryHandler(back_to_menu, pattern="^back_menu$"))
     app.add_handler(CallbackQueryHandler(view_jobs, pattern="^menu_jobs$"))
@@ -65,20 +69,20 @@ def build_bot() -> Application:
     app.add_handler(CallbackQueryHandler(coverletter_menu_handler, pattern="^menu_coverletter$"))
     
     # Jobs Callbacks
-    app.add_handler(CallbackQueryHandler(view_job_detail, pattern="^job_view_"))
+    app.add_handler(CallbackQueryHandler(view_job_detail, pattern="^(job|manual)_view_"))
     app.add_handler(CallbackQueryHandler(save_job_callback, pattern="^job_save_"))
     app.add_handler(CallbackQueryHandler(unsave_job_callback, pattern="^job_unsave_"))
     app.add_handler(CallbackQueryHandler(view_jobs, pattern="^jobs_page_"))
 
     # Cover Letter Callbacks
     app.add_handler(CallbackQueryHandler(copy_cover_letter, pattern="^cl_copy_"))
-    app.add_handler(CallbackQueryHandler(generate_cover_letter_callback, pattern="^cl_(generate|regen|tone)_"))
+    app.add_handler(CallbackQueryHandler(generate_cover_letter_callback, pattern="^(manual_)?cl_(generate|regen|tone)_"))
 
 
 
     # Resume/ATS Callbacks
     app.add_handler(CallbackQueryHandler(ats_analyze_prompt, pattern="^ats_analyze$"))
-    app.add_handler(CallbackQueryHandler(ats_analyze_job_callback, pattern="^ats_job_"))
+    app.add_handler(CallbackQueryHandler(ats_analyze_job_callback, pattern="^(manual_)?ats_job_"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, ats_analyze_result))
 
     # Tracker & Analytics

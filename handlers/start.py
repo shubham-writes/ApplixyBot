@@ -21,7 +21,7 @@ from utils import keyboards, messages
 from utils.admin_notify import notify_admin
 
 # Conversation states
-WELCOME, SKILLS, EXPERIENCE, LOCATION, RESUME_PROMPT, WAITING_RESUME = range(6)
+WELCOME, SKILLS, EXPERIENCE, LOCATION, BATCH_YEAR, RESUME_PROMPT, WAITING_RESUME = range(7)
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -201,6 +201,29 @@ async def location_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     context.user_data["location"] = location
 
     await query.edit_message_text(
+        "🎓 What year did you (or will you) graduate? \\(e\\.g\\. 2025\\)\n\n"
+        "Please type a 4\\-digit year:",
+        parse_mode="MarkdownV2",
+    )
+    return BATCH_YEAR
+
+async def batch_year_received(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Process user's graduation year and prompt for resume."""
+    text = update.message.text.strip()
+    
+    if not text.isdigit() or len(text) != 4 or not (2010 <= int(text) <= 2030):
+        await update.message.reply_text(
+            "⚠️ Please enter a valid 4\\-digit graduation year \\(e\\.g\\. 2024\\)\\.",
+            parse_mode="MarkdownV2",
+        )
+        return BATCH_YEAR
+
+    batch_year = int(text)
+    user_id = update.effective_user.id
+    await update_user_profile(user_id, batch_year=batch_year)
+    context.user_data["batch_year"] = batch_year
+
+    await update.message.reply_text(
         "📄 Almost done\\!\n\n"
         "Upload your resume \\(PDF\\) so I can write personalised cover letters for you\\.\n\n"
         "You can skip this and upload later with /resume",
@@ -355,6 +378,9 @@ def get_start_handler() -> ConversationHandler:
             ],
             LOCATION: [
                 CallbackQueryHandler(location_callback, pattern="^loc_"),
+            ],
+            BATCH_YEAR: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, batch_year_received),
             ],
             RESUME_PROMPT: [
                 CallbackQueryHandler(resume_upload_prompt, pattern="^resume_upload$"),

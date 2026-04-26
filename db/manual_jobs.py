@@ -1,0 +1,144 @@
+"""
+CRUD operations for manually curated jobs.
+"""
+from datetime import datetime
+from loguru import logger
+from db.connection import get_pool
+
+
+async def add_manual_job(data: dict) -> int:
+    """
+    Insert a new manually curated job.
+    data keys: title, company, url, location, salary, job_type, duration,
+               skills (list[str]), min_yoe (int), eligible_batches (list[int]),
+               added_by (int telegram_id), posted_at (datetime optional)
+    Returns: new job ID
+    """
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            INSERT INTO manual_jobs (
+                title, company, url, location, salary, job_type, duration,
+                skills, min_yoe, eligible_batches, added_by, posted_at
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+            RETURNING id
+            """,
+            data["title"],
+            data["company"],
+            data["url"],
+            data.get("location"),
+            data.get("salary"),
+            data.get("job_type", "fulltime"),
+            data.get("duration"),
+            [s.lower() for s in data.get("skills", [])],
+            data.get("min_yoe", 0),
+            data.get("eligible_batches", []),
+            data.get("added_by"),
+            data.get("posted_at") or datetime.utcnow(),
+        )
+        job_id = row["id"]
+        logger.info(f"Manual job added: ID={job_id} — {data['title']} @ {data['company']}")
+        return job_id
+
+
+async def get_manual_jobs(
+    skills: list[str] | None = None,
+    location: str = "both",
+    limit: int = 20,
+    offset: int = 0,
+) -> list[dict]:
+    """
+    Fetch active manual jobs, sorted newest first.
+    Optionally filtered by skill overlap and location.
+    Always returns ALL active manual jobs (we filter & rank in Python by match score).
+    """
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        location_filter = ""
+        if location == "remote":
+            location_filter = "AND (LOWER(location) LIKE '%remote%' OR location IS NULL)"
+        elif location == "india":
+            location_filter = (
+                "AND (LOWER(location) LIKE '%india%' "
+                "OR LOWER(location) LIKE '%bangalore%' "
+                "OR LOWER(location) LIKE '%mumbai%' "
+                "OR LOWER(location) LIKE '%delhi%' "
+                "OR LOWER(location) LIKE '%hyderabad%' "
+                "OR LOWER(location) LIKE '%pune%' "
+                "OR LOWER(location) LIKE '%chennai%' "
+                "OR LOWER(location) LIKE '%remote%' "
+                "OR location IS NULL)"
+            )
+
+        skills_lower = [s.lower() for s in (skills or [])]
+
+        if skills_lower:
+            rows = await conn.fetch(
+                f"""
+                SELECT * FROM manual_jobs
+                WHERE is_active = TRUE
+                AND (skills && $1::text[] OR array_length(skills, 1) IS NULL)
+                {location_filter}
+                ORDER BY posted_at DESC
+                LIMIT $2 OFFSET $3
+                """,
+                skills_lower,
+                limit,
+                offset,
+            )
+        else:
+            rows = await conn.fetch(
+                f"""
+                SELECT * FROM manual_jobs
+                WHERE is_active = TRUE
+                {location_filter}
+                ORDER BY posted_at DESC
+                LIMIT $1 OFFSET $2
+                """,
+                limit,
+                offset,
+            )
+
+        # Tag each record so handlers know it's a manual job
+        result = []
+        for row in rows:
+            d = dict(row)
+            d["is_manual"] = True
+            result.append(d)
+        return result
+
+
+async def get_manual_job_by_id(job_id: int) -> dict | None:
+    """Get a single manual job by ID."""
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT * FROM manual_jobs WHERE id = $1", job_id
+        )
+        if row:
+            d = dict(row)
+            d["is_manual"] = True
+            return d
+        return None
+
+
+async def deactivate_manual_job(job_id: int) -> bool:
+    """Soft-delete a manual job (sets is_active = FALSE)."""
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.execute(
+            "UPDATE manual_jobs SET is_active = FALSE WHERE id = $1",
+            job_id,
+        )
+        return result == "UPDATE 1"
+
+
+async def list_manual_jobs_admin() -> list[dict]:
+    """List all active manual jobs for admin review."""
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT id, title, company, job_type, posted_at, is_active FROM manual_jobs ORDER BY posted_at DESC LIMIT 50"
+        )
+        return [dict(row) for row in rows]

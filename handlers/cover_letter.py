@@ -7,6 +7,7 @@ from loguru import logger
 
 from db.users import get_user, increment_cover_letters_today
 from db.jobs import get_job_by_id
+from db.manual_jobs import get_manual_job_by_id
 from db.connection import get_pool
 from services.llm_service import generate_cover_letter, LLMMode, get_mode_display, get_fallback_cover_letter
 from services.reset_service import check_and_reset_daily
@@ -80,14 +81,19 @@ async def generate_cover_letter_callback(update: Update, context: ContextTypes.D
 
     data_parts = query.data.split("_")
     job_id = int(data_parts[-1])
+    is_manual = query.data.startswith("manual_")
     tone = "formal"
     
-    if query.data.startswith("cl_tone_"):
-        tone = data_parts[2]
+    if "tone" in data_parts:
+        tone = data_parts[-2]
         
-    mode = LLMMode.QUALITY if plan == "pro" else LLMMode.FAST
+    mode = LLMMode.QUALITY if plan in ("pro", "proplus", "premium", "trial") else LLMMode.FAST
 
-    job = await get_job_by_id(job_id)
+    if is_manual:
+        job = await get_manual_job_by_id(job_id)
+    else:
+        job = await get_job_by_id(job_id)
+        
     if not job:
         await query.message.reply_text(messages.error_job_not_found(), parse_mode="MarkdownV2")
         return

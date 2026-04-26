@@ -74,6 +74,32 @@ async def init_db() -> asyncpg.Pool:
         except Exception as e:
             logger.warning(f"Failed to apply trial/pricing migrations: {e}")
 
+        # Manual jobs & batch year migrations
+        try:
+            await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS batch_year INT;")
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS manual_jobs (
+                    id               SERIAL PRIMARY KEY,
+                    title            TEXT NOT NULL,
+                    company          TEXT NOT NULL,
+                    url              TEXT NOT NULL,
+                    location         TEXT,
+                    salary           TEXT,
+                    job_type         TEXT DEFAULT 'fulltime',
+                    duration         TEXT,
+                    skills           TEXT[] DEFAULT '{}',
+                    min_yoe          INT DEFAULT 0,
+                    eligible_batches INT[] DEFAULT '{}',
+                    posted_at        TIMESTAMPTZ DEFAULT NOW(),
+                    is_active        BOOLEAN DEFAULT TRUE,
+                    added_by         BIGINT
+                );
+            """)
+            await conn.execute("CREATE INDEX IF NOT EXISTS idx_manual_jobs_active ON manual_jobs (is_active, posted_at DESC);")
+            await conn.execute("CREATE INDEX IF NOT EXISTS idx_manual_jobs_skills ON manual_jobs USING GIN (skills);")
+        except Exception as e:
+            logger.warning(f"Failed to apply manual_jobs migrations: {e}")
+
     logger.info("Database initialized successfully.")
     return _pool
 

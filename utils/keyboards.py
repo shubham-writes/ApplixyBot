@@ -160,12 +160,19 @@ def job_list_keyboard(jobs: list[dict], plan: str, total_count: int = 0, page: i
     # Render jobs 1 through 5 relative to their spot on the page
     for i, job in enumerate(jobs, 1):
         num = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣"][i - 1]
+        
+        is_manual = job.get("is_manual", False)
+        prefix = "manual" if is_manual else "job"
+        
         apply_row.append(
-            InlineKeyboardButton(f"{num} Apply", callback_data=f"job_view_{job['id']}")
+            InlineKeyboardButton(f"{num} Apply", callback_data=f"{prefix}_view_{job['id']}")
         )
-        save_row.append(
-            InlineKeyboardButton(f"💾 Save #{i}", callback_data=f"job_save_{job['id']}")
-        )
+        
+        if not is_manual:
+            save_row.append(
+                InlineKeyboardButton(f"💾 Save #{i}", callback_data=f"job_save_{job['id']}")
+            )
+            
         if len(apply_row) == 3:
             buttons.append(apply_row)
             buttons.append(save_row)
@@ -206,11 +213,19 @@ def job_list_keyboard(jobs: list[dict], plan: str, total_count: int = 0, page: i
 
 def job_detail_keyboard(job: dict, plan: str, user_skills: list[str] = None) -> InlineKeyboardMarkup:
     """Actions for a single job detail view."""
+    is_manual = job.get("is_manual", False)
+    prefix = "manual" if is_manual else "job"
+    cl_prefix = "manual_cl" if is_manual else "cl"
+    ats_prefix = "manual_ats" if is_manual else "ats"
+
+    top_row = [
+        InlineKeyboardButton("✍️ Cover Letter", callback_data=f"{cl_prefix}_generate_{job['id']}"),
+    ]
+    if not is_manual:
+        top_row.append(InlineKeyboardButton("💾 Save", callback_data=f"job_save_{job['id']}"))
+
     buttons = [
-        [
-            InlineKeyboardButton("✍️ Cover Letter", callback_data=f"cl_generate_{job['id']}"),
-            InlineKeyboardButton("💾 Save", callback_data=f"job_save_{job['id']}"),
-        ],
+        top_row,
         [
             InlineKeyboardButton("✅ Mark as Applied", callback_data=f"applied_{job['id']}"),
             InlineKeyboardButton("🔗 Open Link", url=job["url"]),
@@ -219,7 +234,7 @@ def job_detail_keyboard(job: dict, plan: str, user_skills: list[str] = None) -> 
 
     if plan == "pro":
         buttons.append([
-            InlineKeyboardButton("📊 ATS Analyze This Job", callback_data=f"ats_job_{job['id']}"),
+            InlineKeyboardButton("📊 ATS Analyze This Job", callback_data=f"{ats_prefix}_job_{job['id']}"),
         ])
     elif user_skills is not None:
         from utils.messages import compute_match_details

@@ -187,7 +187,73 @@ def compute_match_details(user_skills: list[str], job_skills: list[str], user_ex
         "job_exp": job_exp,
     }
 
-def format_job_list_message(jobs: list[dict], plan: str, total_count: int, user_skills: list[str] = None, user_exp: str = "0") -> str:
+def compute_manual_job_match(user: dict, job: dict) -> dict:
+    """Compute match score for manual jobs: 70% Skills, 15% YOE, 15% Batch."""
+    # ── Skills (70%) ──
+    user_skills = user.get("skills", [])
+    job_skills = job.get("skills", [])
+    
+    if not job_skills:
+        skill_pct = 50
+        matched_disp, missing_disp = [], []
+    else:
+        user_set = set(s.lower() for s in user_skills)
+        job_set = set(s.lower() for s in job_skills)
+        matched = list(user_set.intersection(job_set))
+        missing = list(job_set.difference(user_set))
+        skill_pct = int((len(matched) / len(job_set)) * 100) if job_set else 50
+        
+        original_map = {s.lower(): s for s in job_skills}
+        matched_disp = [original_map.get(m, m) for m in matched]
+        missing_disp = [original_map.get(m, m) for m in missing]
+
+    # ── Experience (15%) ──
+    user_exp = str(user.get("experience_level", "0"))
+    u_map = {"0": 0, "1": 1, "2": 2, "3_5": 4, "5_plus": 6, "5+": 6}
+    u_exp_years = u_map.get(user_exp, 0)
+    
+    min_yoe = job.get("min_yoe", 0)
+    if u_exp_years >= min_yoe:
+        exp_pct = 100
+        exp_note = f"✅ Meets experience ({min_yoe}+ yrs)"
+    elif min_yoe - u_exp_years <= 1:
+        exp_pct = 50
+        exp_note = f"⚠️ Partial exp gap: needs {min_yoe}+ yrs, you have {u_exp_years}"
+    else:
+        exp_pct = 0
+        exp_note = f"🔴 Exp gap: needs {min_yoe}+ yrs, you have {u_exp_years}"
+
+    # ── Batch Year (15%) ──
+    user_batch = user.get("batch_year")
+    eligible_batches = job.get("eligible_batches", [])
+    
+    if not eligible_batches:
+        batch_pct = 100
+        batch_note = "✅ Any batch eligible"
+    elif user_batch in eligible_batches:
+        batch_pct = 100
+        batch_note = f"✅ Batch match ({user_batch})"
+    else:
+        batch_pct = 50  # Lower score but not 0
+        batch_str = "/".join(str(b) for b in eligible_batches)
+        batch_note = f"⚠️ Batch mismatch: Job requires {batch_str}, your batch is {user_batch or 'unknown'}"
+
+    total_score = int((skill_pct * 0.70) + (exp_pct * 0.15) + (batch_pct * 0.15))
+    total_score = max(0, min(100, total_score))
+
+    return {
+        "score": total_score,
+        "skill_pct": skill_pct,
+        "exp_pct": exp_pct,
+        "batch_pct": batch_pct,
+        "matched": matched_disp,
+        "missing": missing_disp,
+        "exp_note": exp_note,
+        "batch_note": batch_note,
+        "job_exp": min_yoe,
+    }
+
+def format_job_list_message(jobs: list[dict], plan: str, total_count: int, user: dict = None) -> str:
     """Format a list of jobs for display."""
     showing = len(jobs)
     header = f"🔍 *Today's Frontend Jobs* \\({showing} of {total_count} available\\)\n"
@@ -243,9 +309,17 @@ def format_job_list_message(jobs: list[dict], plan: str, total_count: int, user_
         if skills_text:
             line += f"     🏷 {skills_text}\n"
         
-        if user_skills is not None:
-            job_exp = job.get("experience_required")
-            details = compute_match_details(user_skills, skills_list, user_exp, job_exp)
+        if user is not None:
+            if job.get("is_manual"):
+                details = compute_manual_job_match(user, job)
+                batch_note = details.get("batch_note")
+            else:
+                user_skills = user.get("skills", [])
+                user_exp = str(user.get("experience_level", "0"))
+                job_exp = job.get("experience_required")
+                details = compute_match_details(user_skills, skills_list, user_exp, job_exp)
+                batch_note = None
+            
             score = details["score"]
             matched_skills = details["matched"]
             missing_skills = details["missing"]
@@ -273,9 +347,11 @@ def format_job_list_message(jobs: list[dict], plan: str, total_count: int, user_
                 if breakdown:
                     line += f"     {breakdown.strip()}\n"
                 
-                # Experience note
+                # Experience & Batch note
                 if exp_note:
                     line += f"     {escape_md(exp_note)}\n"
+                if batch_note:
+                    line += f"     {escape_md(batch_note)}\n"
                     
             elif plan == "free":
                 if score >= 70:
@@ -300,7 +376,7 @@ def format_job_list_message(jobs: list[dict], plan: str, total_count: int, user_
     return header + "".join(lines) + footer
 
 
-def job_detail_message(job: dict, plan: str = "free", user_skills: list[str] = None, user_exp: str = "0") -> str:
+def job_detail_message(job: dict, plan: str = "free", user: dict = None) -> str:
     """Format single job detail view."""
     title = escape_md(job.get("title", "Untitled"))
     company = escape_md(job.get("company", "Unknown"))
@@ -331,8 +407,16 @@ def job_detail_message(job: dict, plan: str = "free", user_skills: list[str] = N
     skills_text = escape_md(", ".join(s.title() for s in skills_list)) if skills_list else "None listed"
 
     match_section = ""
-    if user_skills is not None:
-        details = compute_match_details(user_skills, skills_list, user_exp, exp_req)
+    if user is not None:
+        if job.get("is_manual"):
+            details = compute_manual_job_match(user, job)
+            batch_note = details.get("batch_note")
+        else:
+            user_skills = user.get("skills", [])
+            user_exp = str(user.get("experience_level", "0"))
+            details = compute_match_details(user_skills, skills_list, user_exp, exp_req)
+            batch_note = None
+
         score = details["score"]
         matched_skills = details["matched"]
         missing_skills = details["missing"]
@@ -358,6 +442,8 @@ def job_detail_message(job: dict, plan: str = "free", user_skills: list[str] = N
                 match_section += f"❌ *Missing:* {escape_md(ms_text)}\n"
             if exp_note:
                 match_section += f"📅 {escape_md(exp_note)}\n"
+            if batch_note:
+                match_section += f"🎓 {escape_md(batch_note)}\n"
             match_section += "\n"
         else:
             # Free user teaser

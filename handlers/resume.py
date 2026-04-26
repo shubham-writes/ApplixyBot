@@ -6,6 +6,8 @@ from telegram.ext import ContextTypes, ConversationHandler
 from loguru import logger
 
 from db.users import get_user, check_ats_limit, increment_ats_check
+from db.jobs import get_job_by_id
+from db.manual_jobs import get_manual_job_by_id
 from services.ats_analyzer import analyze_resume_match
 from utils import keyboards, messages, helpers
 
@@ -193,12 +195,15 @@ async def ats_analyze_job_callback(update: Update, context: ContextTypes.DEFAULT
         )
         return
 
-    # Extract job_id from callback_data: ats_job_<id>
+    # Extract job_id from callback_data: ats_job_<id> or manual_ats_job_<id>
     job_id = int(query.data.split("_")[-1])
+    is_manual = query.data.startswith("manual_")
 
-    # Import here to avoid circular imports
-    from db.jobs import get_job_by_id
-    job = await get_job_by_id(job_id)
+    if is_manual:
+        job = await get_manual_job_by_id(job_id)
+    else:
+        job = await get_job_by_id(job_id)
+        
     if not job:
         await query.edit_message_text("⚠️ Job not found\\.", parse_mode="MarkdownV2")
         return

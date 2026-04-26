@@ -52,6 +52,7 @@ async def update_user_profile(
     location_pref: str | None = None,
     alert_time: str | None = None,
     experience_level: str | None = None,
+    batch_year: int | None = None,
 ) -> dict:
     """Update user profile fields. Only updates non-None values."""
     pool = get_pool()
@@ -78,6 +79,11 @@ async def update_user_profile(
         param_idx += 1
         updates.append(f"alert_time = ${param_idx}")
         values.append(alert_time)
+
+    if batch_year is not None:
+        param_idx += 1
+        updates.append(f"batch_year = ${param_idx}")
+        values.append(batch_year)
 
     if not updates:
         return await get_user(telegram_id)
