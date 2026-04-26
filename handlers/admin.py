@@ -73,6 +73,14 @@ async def parse_and_add_job(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         # Line 4: Batches | YOE
         batch_yoe = lines[3].replace("🎓", "").split("|")
         batch_str = batch_yoe[0].strip()
+        
+        yoe_str = "0"
+        if len(batch_yoe) > 1:
+            yoe_str = batch_yoe[1].strip()
+        elif "yoe" in batch_str.lower():
+            yoe_str = batch_str
+            batch_str = ""
+
         batches = []
         if batch_str:
             parts = batch_str.split("/")
@@ -81,7 +89,6 @@ async def parse_and_add_job(update: Update, context: ContextTypes.DEFAULT_TYPE) 
                 if p.isdigit():
                     batches.append(int(p))
         
-        yoe_str = batch_yoe[1].strip() if len(batch_yoe) > 1 else "0"
         min_yoe = 0
         for char in yoe_str:
             if char.isdigit():
