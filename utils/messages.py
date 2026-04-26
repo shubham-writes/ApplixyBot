@@ -529,46 +529,44 @@ def _pricing_block(pricing: dict | None) -> str:
     if not pricing:
         return ""
     if pricing.get("is_early_adopter_active"):
-        slots = pricing['slots_remaining']
-        days = pricing['days_remaining']
         price = pricing['current_price']
         reg = pricing['regular_price']
+        days = pricing['days_remaining']
         return (
             f"🔥 Early adopter offer: ₹{price}/mo\n"
-            f"Regular price after {days} days: ₹{reg}/mo\n"
-            f"{slots} spots left at this price\."
+            f"Regular price after {days} days: ₹{reg}/mo"
         )
     return f"Pro: ₹{pricing.get('current_price', 499)}/mo"
 
 
 def upgrade_early_adopter_message(pricing: dict) -> str:
     """Dynamic upgrade message shown during early adopter period."""
-    slots_filled = pricing["slots_filled"]
-    total_slots = pricing["total_slots"]
-    filled_blocks = int((slots_filled / max(total_slots, 1)) * 10)
-    empty_blocks = 10 - filled_blocks
-    progress_bar = escape_md("█" * filled_blocks + "░" * empty_blocks)
     ea_price = pricing['early_adopter_price']
     reg_price = pricing['regular_price']
-    slots_left = pricing['slots_remaining']
     days_left = pricing['days_remaining']
 
     return (
-        "🔥 *Early Adopter Offer — Closing Soon*\n\n"
-        f"\[{progress_bar}\] {slots_filled}/{total_slots} spots taken\n\n"
-        f"*₹{ea_price}/month*  ~~₹{reg_price}~~\n"
-        "Lock this price in forever — it never goes up for you\\.\n\n"
-        f"⏰ Offer expires in *{days_left} days* "
-        f"OR when {slots_left} remaining spots fill up\\.\n\n"
-        "*What you unlock:*\n"
-        "✅ Unlimited web jobs daily\n"
-        "✅ Full match scores on every listing\n"
-        "✅ 10 tailored cover letters/day\n"
-        "✅ 5 ATS checks/day\n"
-        "✅ Application tracker \\+ 7\\-day reminders\n"
-        "✅ Llama 3 70B \\(better AI quality\\)\n\n"
-        "Devs on Pro average *3x more interviews* "
-        "than free users in the first month\."
+        f"🔥 *Early Adopter Offer*\n\n"
+        f"*₹{ea_price}/month* ~~₹{reg_price}~~\n"
+        f"Lock this price in forever — it won't increase for you\\.\n\n"
+        f"⏳ _Intro price available for next {days_left} days_\n\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
+        "*🎯 Why upgrade?*\n\n"
+        "🚀 Apply to more relevant jobs faster\n"
+        "🧠 Improve your resume match before applying\n"
+        "📨 Generate tailored cover letters instantly\n"
+        "⏰ Never miss follow\\-ups or opportunities\n\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
+        "*🔓 What you unlock*\n\n"
+        "✅ Unlimited job alerts daily\n"
+        "✅ Full job match scores\n"
+        "✅ AI cover letters \\(10/day\\)\n"
+        "✅ Resume ATS checks \\(5/day\\)\n"
+        "✅ Application tracker \\+ reminders\n"
+        "✅ Improved AI \\(Llama 3 70B\\)\n\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
+        "_Built for devs who are serious about getting interviews faster\\._ 💡\n\n"
+        "*Cancel anytime\\. No hidden charges\\.*"
     )
 
 
