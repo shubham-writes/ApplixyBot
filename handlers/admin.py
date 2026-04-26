@@ -14,16 +14,19 @@ from loguru import logger
 from config import settings
 from db.manual_jobs import add_manual_job
 
-WAITING_FOR_JOB_TEXT = range(1)
+WAITING_FOR_JOB_TEXT = 1
 
 
 async def addjob_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Start the /addjob flow (Admin only)."""
-    if update.effective_user.id != settings.ADMIN_TELEGRAM_ID:
+    user_id = update.effective_user.id
+    logger.info(f"User {user_id} requested /addjob. Admin ID is {settings.ADMIN_TELEGRAM_ID}")
+    if user_id != settings.ADMIN_TELEGRAM_ID:
+        logger.warning(f"Unauthorized access to /addjob by {user_id}")
         return ConversationHandler.END
 
     await update.message.reply_text(
-        "📝 *Add Manual Job*\n\n"
+        "📝 <b>Add Manual Job</b>\n\n"
         "Send me the job details exactly in this format:\n\n"
         "React Developer - Oracle\n"
         "Job link: https://wellfound-react-remote-us\n"
@@ -31,7 +34,7 @@ async def addjob_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         "🎓 2025/2026 | 1+ YOE\n"
         "🏷 Typescript, React, Next.Js, CSS, Git\n\n"
         "Type /cancel to abort.",
-        parse_mode="MarkdownV2",
+        parse_mode="HTML",
         disable_web_page_preview=True,
     )
     return WAITING_FOR_JOB_TEXT
@@ -106,10 +109,10 @@ async def parse_and_add_job(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         job_id = await add_manual_job(data)
 
         await update.message.reply_text(
-            f"✅ *Job Added successfully!*\n"
+            f"✅ <b>Job Added successfully!</b>\n"
             f"ID: {job_id}\n"
             f"{title} @ {company}",
-            parse_mode="MarkdownV2"
+            parse_mode="HTML"
         )
         return ConversationHandler.END
 
