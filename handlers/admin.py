@@ -32,7 +32,8 @@ async def addjob_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         "Job link: https://wellfound-react-remote-us\n"
         "📍 Remote - US | 6 month Internship | 25K/Month\n"
         "🎓 2025/2026 | 1+ YOE\n"
-        "🏷 Typescript, React, Next.Js, CSS, Git\n\n"
+        "🏷 Typescript, React, Next.Js, CSS, Git\n"
+        "⏰ 22d ago  (Optional)\n\n"
         "Type /cancel to abort.",
         parse_mode="HTML",
         disable_web_page_preview=True,
@@ -91,6 +92,20 @@ async def parse_and_add_job(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         skills_str = lines[4].replace("🏷", "").strip()
         skills = [s.strip() for s in skills_str.split(",")]
 
+        # Line 6: Time (Optional)
+        posted_at = None
+        if len(lines) > 5 and "⏰" in lines[5]:
+            time_str = lines[5].replace("⏰", "").replace("ago", "").replace("(Optional)", "").strip()
+            from datetime import datetime, timedelta, timezone
+            try:
+                num = int(''.join(filter(str.isdigit, time_str)))
+                if 'd' in time_str:
+                    posted_at = datetime.now(timezone.utc) - timedelta(days=num)
+                elif 'h' in time_str:
+                    posted_at = datetime.now(timezone.utc) - timedelta(hours=num)
+            except Exception:
+                pass
+
         # Insert DB
         data = {
             "title": title,
@@ -103,7 +118,8 @@ async def parse_and_add_job(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             "skills": skills,
             "min_yoe": min_yoe,
             "eligible_batches": batches,
-            "added_by": update.effective_user.id
+            "added_by": update.effective_user.id,
+            "posted_at": posted_at
         }
         
         job_id = await add_manual_job(data)
