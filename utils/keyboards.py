@@ -111,8 +111,8 @@ def onboarding_complete_keyboard() -> InlineKeyboardMarkup:
 # Main Menu
 # ──────────────────────────────────────────────
 
-def main_menu_keyboard(plan: str = "free") -> InlineKeyboardMarkup:
-    """Main menu dynamic rendering based on plan."""
+def main_menu_keyboard(plan: str = "free", upgrade_price: int | None = None) -> InlineKeyboardMarkup:
+    """Main menu dynamic rendering based on plan. upgrade_price shown on button when free plan."""
     buttons = [
         [
             InlineKeyboardButton("🔍 Browse Jobs", callback_data="menu_jobs"),
@@ -136,8 +136,9 @@ def main_menu_keyboard(plan: str = "free") -> InlineKeyboardMarkup:
             InlineKeyboardButton("📄 Resume", callback_data="menu_resume"),
             InlineKeyboardButton("⚙️ Settings", callback_data="menu_settings"),
         ])
+        price_label = f"₹{upgrade_price}/mo" if upgrade_price else "Upgrade"
         buttons.append([
-            InlineKeyboardButton("💎 Upgrade — ₹99", callback_data="menu_upgrade"),
+            InlineKeyboardButton(f"💎 Go Pro — {price_label}", callback_data="menu_upgrade"),
         ])
 
     return InlineKeyboardMarkup(buttons)
@@ -225,9 +226,9 @@ def job_detail_keyboard(job: dict, plan: str, user_skills: list[str] = None) -> 
         details = compute_match_details(user_skills, job.get("skills", []))
         score = details["score"]
         if score >= 70:
-            buttons.insert(0, [InlineKeyboardButton("🔍 Unlock Match Breakdown — ₹99", callback_data="menu_upgrade")])
+            buttons.insert(0, [InlineKeyboardButton("🔍 Unlock Match Breakdown → Go Pro", callback_data="menu_upgrade")])
         elif score < 40:
-            buttons.insert(0, [InlineKeyboardButton("🔍 See What's Missing — ₹99", callback_data="menu_upgrade")])
+            buttons.insert(0, [InlineKeyboardButton("🔍 See What's Missing → Go Pro", callback_data="menu_upgrade")])
 
     buttons.append([
         InlineKeyboardButton("🔙 Back to Jobs", callback_data="menu_jobs")
@@ -258,10 +259,10 @@ def cover_letter_result_keyboard(job_id: int) -> InlineKeyboardMarkup:
 
 
 def cover_letter_limit_keyboard() -> InlineKeyboardMarkup:
-    """Shown when free user hits monthly cover letter limit."""
+    """Shown when free user hits daily cover letter limit."""
     return InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("💎 Upgrade to Pro — ₹299/mo", callback_data="upgrade_pro"),
+            InlineKeyboardButton("💎 Upgrade to Pro", callback_data="upgrade_pro"),
         ],
         [
             InlineKeyboardButton("🔙 Back", callback_data="back_menu"),
@@ -305,10 +306,10 @@ def resume_keyboard(has_resume: bool, plan: str = "free") -> InlineKeyboardMarku
 # ──────────────────────────────────────────────
 
 def upgrade_keyboard() -> InlineKeyboardMarkup:
-    """Subscription plan selection."""
+    """Fallback subscription plan selection (used if dynamic handler fails)."""
     return InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("💳 Pay ₹99 via UPI/Card", callback_data="upgrade_pro"),
+            InlineKeyboardButton("💳 Pay via UPI/Card", callback_data="upgrade_pro"),
         ],
         [
             InlineKeyboardButton("🔙 Back to Menu", callback_data="back_menu"),

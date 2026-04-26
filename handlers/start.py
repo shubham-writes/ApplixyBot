@@ -31,9 +31,18 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
     if db_user.get("is_onboarded"):
         # Returning user → main menu
+        plan = db_user.get("plan", "free")
+        upgrade_price = None
+        if plan not in ("pro",):
+            try:
+                from services.pricing_service import get_current_pricing
+                pricing = await get_current_pricing(get_pool())
+                upgrade_price = pricing.get("current_price")
+            except Exception:
+                pass
         await update.message.reply_text(
             messages.main_menu(db_user),
-            reply_markup=keyboards.main_menu_keyboard(db_user.get("plan", "free")),
+            reply_markup=keyboards.main_menu_keyboard(plan, upgrade_price=upgrade_price),
             parse_mode="MarkdownV2",
         )
         return ConversationHandler.END
@@ -313,10 +322,17 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Cancel onboarding and return to menu."""
     user = await get_user(update.effective_user.id)
     plan = user.get("plan", "free") if user else "free"
-    
+    upgrade_price = None
+    if plan not in ("pro",):
+        try:
+            pricing = await get_current_pricing(get_pool())
+            upgrade_price = pricing.get("current_price")
+        except Exception:
+            pass
+
     await update.message.reply_text(
         messages.main_menu(user),
-        reply_markup=keyboards.main_menu_keyboard(plan),
+        reply_markup=keyboards.main_menu_keyboard(plan, upgrade_price=upgrade_price),
         parse_mode="MarkdownV2",
     )
     return ConversationHandler.END

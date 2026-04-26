@@ -101,16 +101,10 @@ def main_menu(user: dict, pricing: dict | None = None) -> str:
             f"⚡ Pro Trial — {escape_md(time_str)}\n"
         )
 
-    # Free plan
-    price_str = ""
-    if pricing and pricing.get("is_early_adopter_active"):
-        price_str = f" ₹{pricing['current_price']}/mo 🔥"
-    elif pricing:
-        price_str = f" ₹{pricing['current_price']}/mo"
+    # Free plan — no upgrade text in message body (keyboard has the button)
     return (
         "🏠 *Applixy*\n"
-        f"Plan: Free \\(5 jobs · 1 cover letter · 1 ATS check/day\\)\n"
-        f"[💎 Upgrade{escape_md(price_str)}]"
+        "Plan: Free \\(5 jobs · 1 cover letter · 1 ATS check/day\\)"
     )
 
 
@@ -547,16 +541,16 @@ def upgrade_early_adopter_message(pricing: dict) -> str:
 
     return (
         f"🔥 *Early Adopter Offer*\n\n"
-        f"*₹{ea_price}/month* ~~₹{reg_price}~~\n"
-        f"Lock this price in forever — it won't increase for you\\.\n\n"
+        f"*₹{ea_price}/month* (regular price ~~₹{reg_price}~~)\n"
+        f"Lock this price in forever, it won't increase for you\\.\n\n"
         f"⏳ _Intro price available for next {days_left} days_\n\n"
-        "━━━━━━━━━━━━━━━━━━━━\n\n"
+        "━━━━━━━━━━━━━━━━━━\n\n"
         "*🎯 Why upgrade?*\n\n"
         "🚀 Apply to more relevant jobs faster\n"
         "🧠 Improve your resume match before applying\n"
         "📨 Generate tailored cover letters instantly\n"
         "⏰ Never miss follow\\-ups or opportunities\n\n"
-        "━━━━━━━━━━━━━━━━━━━━\n\n"
+        "━━━━━━━━━━━━━━━━━━\n\n"
         "*🔓 What you unlock*\n\n"
         "✅ Unlimited job alerts daily\n"
         "✅ Full job match scores\n"
@@ -564,7 +558,7 @@ def upgrade_early_adopter_message(pricing: dict) -> str:
         "✅ Resume ATS checks \\(5/day\\)\n"
         "✅ Application tracker \\+ reminders\n"
         "✅ Improved AI \\(Llama 3 70B\\)\n\n"
-        "━━━━━━━━━━━━━━━━━━━━\n\n"
+        "━━━━━━━━━━━━━━━━━━\n\n"
         "_Built for devs who are serious about getting interviews faster\\._ 💡\n\n"
         "*Cancel anytime\\. No hidden charges\\.*"
     )
