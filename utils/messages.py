@@ -9,12 +9,16 @@ from utils.helpers import escape_md
 # Onboarding
 # ──────────────────────────────────────────────
 
-def welcome_message() -> str:
+def welcome_message(first_name: str = "there") -> str:
+    safe_name = escape_md(first_name)
     return (
-        "🤖 *Welcome to ApplixyBot\\!*\n\n"
-        "I help frontend developers find jobs, write cover letters, "
-        "and ace interviews — all inside Telegram\\.\n\n"
-        "Let's set up your profile in 2 minutes\\.\n\n"
+        f"👋 Hey {safe_name}\\!\n\n"
+        "Tired of sending 50 applications and hearing nothing back?\n\n"
+        "Applixy finds the RIGHT web jobs for your skills, "
+        "writes cover letters that actually get read, and tracks "
+        "every application so nothing falls through the cracks\\.\n\n"
+        "*3 days free\\. No card needed\\. Cancel anytime\\.* \n\n"
+        "Let's get you interviews — not just applications\\. 🎯\n\n"
         "What best describes you?"
     )
 
@@ -23,7 +27,34 @@ def skills_prompt() -> str:
     return "Great\\! Which technologies do you work with?\n\\(Select all that apply, then tap *Done*\\)"
 
 
+def trial_activated_message(trial_expires_at) -> str:
+    """Shown after onboarding completes — announces the 3-day Pro trial."""
+    if trial_expires_at:
+        from datetime import timezone
+        expires_str = escape_md(
+            trial_expires_at.strftime("%A, %B %-d at %-I:%M %p UTC")
+        )
+    else:
+        expires_str = "72 hours from now"
+    return (
+        "🎉 *3\\-Day Pro Trial — Activated\\!*\n\n"
+        "For the next 72 hours you have full Pro access:\n"
+        "✅ Unlimited jobs\n"
+        "✅ 10 cover letters/day\n"
+        "✅ Full match scores on every job\n"
+        "✅ 5 ATS checks/day\n"
+        "✅ Unlimited application tracking\n"
+        "✅ 7\\-day follow\\-up reminders\n\n"
+        "*No card needed\\. No auto\\-charge\\. Ever\\.* \n\n"
+        "After 3 days you choose — upgrade or stay free\\.\n"
+        "Either way, your data stays\\.\n\n"
+        f"Your trial expires: {expires_str}\n\n"
+        "*What would you like to do first?*"
+    )
+
+
 def onboarding_complete(skills: list[str], location: str, has_resume: bool) -> str:
+    """Legacy fallback — now replaced by trial_activated_message in most flows."""
     skills_text = escape_md(", ".join(skills)) if skills else "None selected"
     loc_map = {"remote": "🌏 Remote", "india": "🇮🇳 India", "both": "🌐 Both"}
     loc_text = loc_map.get(location, location)
@@ -43,22 +74,43 @@ def onboarding_complete(skills: list[str], location: str, has_resume: bool) -> s
 # Main Menu
 # ──────────────────────────────────────────────
 
-def main_menu(user: dict) -> str:
+def main_menu(user: dict, pricing: dict | None = None) -> str:
     plan = user.get("plan", "free")
-    limits_text = "5 jobs/day • 1 cover letter/day"
+
     if plan == "pro":
-        # Check plan expiry
         expires_at = user.get("plan_expires_at")
-        date_str = expires_at.strftime("%d %b %Y") if expires_at else "auto"
-        limits_text = f"unlimited • renews {date_str}"
-        
+        date_str = expires_at.strftime("%b %d") if expires_at else "soon"
+        early_tag = " \\(Early Adopter 🔒\\)" if user.get("is_early_adopter") else ""
         return (
-            "🏠 *ApplixyBot*\n"
-            f"Plan: ⭐ Pro \\({escape_md(limits_text)}\\)\n"
+            "🏠 *Applixy*\n"
+            f"Plan: ⭐ Pro{early_tag}\n"
+            f"Renews: {escape_md(date_str)}\n"
         )
+
+    if plan == "trial":
+        trial_expires = user.get("trial_expires_at")
+        from datetime import datetime, timezone
+        if trial_expires:
+            remaining = trial_expires - datetime.now(timezone.utc)
+            hours_left = max(0, int(remaining.total_seconds() / 3600))
+            time_str = f"{hours_left}h remaining"
+        else:
+            time_str = "active"
+        return (
+            "🏠 *Applixy*\n"
+            f"⚡ Pro Trial — {escape_md(time_str)}\n"
+        )
+
+    # Free plan
+    price_str = ""
+    if pricing and pricing.get("is_early_adopter_active"):
+        price_str = f" ₹{pricing['current_price']}/mo 🔥"
+    elif pricing:
+        price_str = f" ₹{pricing['current_price']}/mo"
     return (
-        "🏠 *ApplixyBot*\n"
-        f"Plan: Free \\({escape_md(limits_text)}\\)\n"
+        "🏠 *Applixy*\n"
+        f"Plan: Free \\(5 jobs · 1 cover letter · 1 ATS check/day\\)\n"
+        f"[💎 Upgrade{escape_md(price_str)}]"
     )
 
 
@@ -368,11 +420,17 @@ def cover_letter_result(job_title: str, company: str, letter: str) -> str:
     )
 
 
-def cover_letter_limit_hit(used: int, max_cl: int, reset_date: str) -> str:
+def cover_letter_limit_hit(used: int, max_cl: int, reset_date: str, pricing: dict | None = None) -> str:
+    price_block = _pricing_block(pricing)
     return (
-        f"⚠️ You've used your {used} free cover letters this month\\.\n\n"
-        f"Upgrade to Pro \\(₹299/mo\\) for *unlimited* cover letters \\+ 20 jobs/day alerts\\.\n\n"
-        f"Your plan resets on {escape_md(reset_date)}\\."
+        "You've written your cover letter for today\.\n\n"
+        "Most callbacks come from applications where "
+        "the cover letter is tailored — not copy\-pasted\. "
+        "With 1/day you can only properly apply to 1 job\.\n\n"
+        "Pro members average 4 tailored applications per day\. "
+        "That's 4x more shots at getting hired\.\n\n"
+        f"{price_block}\n"
+        f"_Resets: {escape_md(reset_date)}_"
     )
 
 
@@ -466,20 +524,80 @@ def ats_result(result: dict) -> str:
 # Upgrade
 # ──────────────────────────────────────────────
 
-def upgrade_plans(current_plan: str) -> str:
+def _pricing_block(pricing: dict | None) -> str:
+    """Helper: returns the early adopter or regular pricing block for limit messages."""
+    if not pricing:
+        return ""
+    if pricing.get("is_early_adopter_active"):
+        slots = pricing['slots_remaining']
+        days = pricing['days_remaining']
+        price = pricing['current_price']
+        reg = pricing['regular_price']
+        return (
+            f"🔥 Early adopter offer: ₹{price}/mo\n"
+            f"Regular price after {days} days: ₹{reg}/mo\n"
+            f"{slots} spots left at this price\."
+        )
+    return f"Pro: ₹{pricing.get('current_price', 499)}/mo"
+
+
+def upgrade_early_adopter_message(pricing: dict) -> str:
+    """Dynamic upgrade message shown during early adopter period."""
+    slots_filled = pricing["slots_filled"]
+    total_slots = pricing["total_slots"]
+    filled_blocks = int((slots_filled / max(total_slots, 1)) * 10)
+    empty_blocks = 10 - filled_blocks
+    progress_bar = escape_md("█" * filled_blocks + "░" * empty_blocks)
+    ea_price = pricing['early_adopter_price']
+    reg_price = pricing['regular_price']
+    slots_left = pricing['slots_remaining']
+    days_left = pricing['days_remaining']
+
     return (
-        "💎 *Upgrade to Pro — ₹99/month*\n\n"
-        "Here's what you unlock:\n\n"
-        "```text\n"
-        "             Free     Pro\n"
-        "Jobs/day      5      Unlimited\n"
-        "Cover letters 1/day   10/day\n"
-        "Match score   ❌        ✅\n"
-        "App tracker   10 max  Unlimited  \n"
-        "Reminders     ❌        ✅\n"
-        "Weekly digest ❌        ✅\n"
-        "AI model      Fast     Quality\n"
-        "```\n\n"
+        "🔥 *Early Adopter Offer — Closing Soon*\n\n"
+        f"\[{progress_bar}\] {slots_filled}/{total_slots} spots taken\n\n"
+        f"*₹{ea_price}/month*  ~~₹{reg_price}~~\n"
+        "Lock this price in forever — it never goes up for you\\.\n\n"
+        f"⏰ Offer expires in *{days_left} days* "
+        f"OR when {slots_left} remaining spots fill up\\.\n\n"
+        "*What you unlock:*\n"
+        "✅ Unlimited web jobs daily\n"
+        "✅ Full match scores on every listing\n"
+        "✅ 10 tailored cover letters/day\n"
+        "✅ 5 ATS checks/day\n"
+        "✅ Application tracker \\+ 7\\-day reminders\n"
+        "✅ Llama 3 70B \\(better AI quality\\)\n\n"
+        "Devs on Pro average *3x more interviews* "
+        "than free users in the first month\."
+    )
+
+
+def upgrade_regular_message(pricing: dict) -> str:
+    """Dynamic upgrade message after early adopter period ends."""
+    price = pricing.get('current_price', 499)
+    return (
+        f"💎 *Applixy Pro — ₹{price}/month*\n\n"
+        "*What you unlock:*\n"
+        "✅ Unlimited web jobs daily\n"
+        "✅ Full match scores on every listing\n"
+        "✅ 10 tailored cover letters/day\n"
+        "✅ 5 ATS checks/day\n"
+        "✅ Application tracker \\+ 7\\-day reminders\n"
+        "✅ Llama 3 70B \\(better AI quality\\)\n\n"
+        "Less than one dinner out\\. ☕"
+    )
+
+
+def upgrade_plans(current_plan: str) -> str:
+    """Legacy fallback — handlers now call upgrade_early_adopter_message or upgrade_regular_message."""
+    return (
+        "💎 *Upgrade to Pro*\n\n"
+        "*What you unlock:*\n"
+        "✅ Unlimited web jobs daily\n"
+        "✅ Full match scores on every listing\n"
+        "✅ 10 tailored cover letters/day\n"
+        "✅ 5 ATS checks/day\n"
+        "✅ Application tracker \\+ 7\\-day reminders\n\n"
         "All for less than a cup of chai\\. ☕"
     )
 

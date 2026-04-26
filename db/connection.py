@@ -45,6 +45,35 @@ async def init_db() -> asyncpg.Pool:
         except Exception as e:
             logger.warning(f"Failed to apply DB migrations: {e}")
 
+        # Trial & pricing migrations
+        try:
+            await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_started_at TIMESTAMPTZ;")
+            await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_expires_at TIMESTAMPTZ;")
+            await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_trial BOOLEAN DEFAULT FALSE;")
+            await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_early_adopter BOOLEAN DEFAULT FALSE;")
+            await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS joined_at TIMESTAMPTZ DEFAULT NOW();")
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS pricing_config (
+                    id                   SERIAL PRIMARY KEY,
+                    early_adopter_price  INT DEFAULT 199,
+                    regular_price        INT DEFAULT 499,
+                    early_adopter_slots  INT DEFAULT 200,
+                    slots_filled         INT DEFAULT 0,
+                    early_adopter_active BOOLEAN DEFAULT TRUE,
+                    launch_date          TIMESTAMPTZ DEFAULT NOW()
+                );
+            """)
+            await conn.execute("""
+                INSERT INTO pricing_config (
+                    early_adopter_price, regular_price, early_adopter_slots,
+                    slots_filled, early_adopter_active, launch_date
+                )
+                SELECT 199, 499, 200, 0, TRUE, NOW()
+                WHERE NOT EXISTS (SELECT 1 FROM pricing_config);
+            """)
+        except Exception as e:
+            logger.warning(f"Failed to apply trial/pricing migrations: {e}")
+
     logger.info("Database initialized successfully.")
     return _pool
 

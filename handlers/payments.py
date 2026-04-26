@@ -1,18 +1,20 @@
 """
-Upgrade and Payment handlers.
+Upgrade and Payment handlers — dynamic pricing with early adopter scarcity.
 """
-from telegram import Update
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 from loguru import logger
 
 from db.users import get_user
+from db.connection import get_pool
 from services.payment_service import create_payment_link
+from services.pricing_service import get_current_pricing
 from utils import keyboards, messages
 from utils.helpers import escape_md
 
 
 async def upgrade_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /upgrade."""
+    """Handle /upgrade — show dynamic pricing based on early adopter status."""
     user_id = update.effective_user.id
     user = await get_user(user_id)
 
@@ -25,8 +27,29 @@ async def upgrade_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
 
     plan = user.get("plan", "free")
-    msg = messages.upgrade_plans(plan)
-    kb = keyboards.upgrade_keyboard()
+    if plan == "pro":
+        msg = escape_md("✅ You're already on Pro! Use /status to check your account details.")
+        if update.callback_query:
+            await update.callback_query.answer()
+            await update.callback_query.edit_message_text(msg, parse_mode="MarkdownV2")
+        else:
+            await update.message.reply_text(msg, parse_mode="MarkdownV2")
+        return
+
+    # Get dynamic pricing
+    db_pool = get_pool()
+    pricing = await get_current_pricing(db_pool)
+
+    if pricing["is_early_adopter_active"]:
+        msg = messages.upgrade_early_adopter_message(pricing)
+        btn_label = f"💳 Lock in ₹{pricing['current_price']}/mo Now"
+    else:
+        msg = messages.upgrade_regular_message(pricing)
+        btn_label = f"💳 Upgrade to Pro — ₹{pricing['current_price']}/mo"
+
+    kb = InlineKeyboardMarkup([[
+        InlineKeyboardButton(btn_label, callback_data="upgrade_pro")
+    ]])
 
     if update.callback_query:
         await update.callback_query.answer()
@@ -36,16 +59,13 @@ async def upgrade_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 async def checkout_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Generate and send Razorpay payment link."""
-    from telegram import InlineKeyboardMarkup, InlineKeyboardButton
-
+    """Generate and send Razorpay payment link with current dynamic price."""
     query = update.callback_query
     await query.answer()
 
-    # callback_data: upgrade_pro / upgrade_proplus / upgrade_premium
-    raw = query.data  # e.g. "upgrade_proplus"
-    plan = raw[len("upgrade_"):]  # strip leading "upgrade_" prefix
     user_id = update.effective_user.id
+    db_pool = get_pool()
+    pricing = await get_current_pricing(db_pool)
 
     back_kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("🔙 Back to Plans", callback_data="menu_upgrade")]
@@ -54,19 +74,25 @@ async def checkout_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     try:
         await query.edit_message_text("⏳ Generating secure payment link...")
 
-        url = await create_payment_link(plan, user_id)
+        is_early = pricing["is_early_adopter_active"]
+        amount = pricing["current_price"]
+
+        url = await create_payment_link(
+            plan="pro",
+            telegram_id=user_id,
+            amount=amount,
+            is_early_adopter=is_early,
+        )
 
         if url:
-            plan_display = {"pro": "Pro", "proplus": "Pro+", "premium": "Premium"}.get(plan, plan.title())
+            price_label = f"₹{amount}"
             kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton(f"💳 Pay for {plan_display} — Tap Here", url=url)],
+                [InlineKeyboardButton(f"💳 Pay {price_label} — Tap Here", url=url)],
                 [InlineKeyboardButton("🔙 Back to Plans", callback_data="menu_upgrade")]
             ])
-
-            safe_plan = escape_md(plan_display)
             await query.edit_message_text(
                 f"✅ *Your payment link is ready\\!*\n\n"
-                f"Tap the button below to upgrade to *{safe_plan}* securely via Razorpay\\.\n\n"
+                f"Tap the button below to upgrade to *Pro* securely via Razorpay\\.\n\n"
                 "Your account upgrades automatically within 1 minute of payment\\.",
                 reply_markup=kb,
                 parse_mode="MarkdownV2"
@@ -79,7 +105,7 @@ async def checkout_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             )
 
     except Exception as e:
-        logger.error(f"checkout_handler crashed for plan={plan} user={user_id}: {e}")
+        logger.error(f"checkout_handler crashed for user={user_id}: {e}")
         try:
             await query.edit_message_text(
                 "❌ Something went wrong\\. Please try again\\.",

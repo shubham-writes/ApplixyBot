@@ -150,24 +150,55 @@ async def razorpay_webhook(request: Request):
     telegram_id = payment_info["telegram_id"]
     plan = payment_info["plan"]
 
+    # Check early adopter flag from payment notes
+    notes = {}
+    try:
+        entity = data.get("payload", {}).get("payment", {}).get("entity", {})
+        notes = entity.get("notes", {})
+        if not notes:
+            entity = data.get("payload", {}).get("payment_link", {}).get("entity", {})
+            notes = entity.get("notes", {})
+    except Exception:
+        pass
+    is_early_adopter = notes.get("is_early_adopter") == "true"
+
     # Calculate expiration (1 month from now)
     expires_at = datetime.now(timezone.utc) + relativedelta(months=1)
 
-    # Upgrade User in DB
+    # Upgrade user in DB
     await update_user_plan(telegram_id, plan, expires_at)
 
-    # Notify User via bot
+    # Mark early adopter and increment slots if applicable
+    if is_early_adopter:
+        from services.pricing_service import increment_slots_filled
+        from db.connection import get_pool
+        db_pool = get_pool()
+        try:
+            await db_pool.execute("""
+                UPDATE users
+                SET is_early_adopter = TRUE
+                WHERE telegram_id = $1
+            """, telegram_id)
+            await increment_slots_filled(db_pool)
+            logger.info(f"Early adopter slot incremented for user {telegram_id}")
+        except Exception as e:
+            logger.error(f"Failed to mark early adopter for {telegram_id}: {e}")
+
+    # Notify user via bot
     try:
-        from utils.messages import escape_md
+        from utils.helpers import escape_md
         amount = data.get("payload", {}).get("payment", {}).get("entity", {}).get("amount", 0) / 100
+        early_tag = " 🔒 Early Adopter price locked\\!" if is_early_adopter else ""
         await bot_app.bot.send_message(
             chat_id=telegram_id,
             text=(
-                f"🎉 *Payment Successful\\!*\n\n"
-                f"Your account has been upgraded to the *{plan.title()}* plan\\.\n"
-                f"Amount paid: ₹{amount}\n"
-                f"Valid until: {escape_md(expires_at.strftime('%Y-%m-%d'))}\n\n"
-                "Thank you for supporting ApplixyBot\\!\n"
+                f"🎉 *You're now on Pro\\!*\n\n"
+                f"Amount paid: ₹{int(amount)}{escape_md(early_tag)}\n"
+                f"Valid until: {escape_md(expires_at.strftime('%B %d, %Y'))}\n\n"
+                "✅ Unlimited jobs\n"
+                "✅ 10 cover letters/day\n"
+                "✅ Full match scores\n"
+                "✅ 5 ATS checks/day\n\n"
                 "Type /menu to explore your new features\\."
             ),
             parse_mode="MarkdownV2"

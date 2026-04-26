@@ -14,7 +14,9 @@ from telegram.ext import (
 from loguru import logger
 
 from db.users import get_or_create_user, update_user_profile, update_resume, set_onboarded, get_user
+from db.connection import get_pool
 from services.resume_parser import extract_text_from_pdf, save_resume_file
+from services.pricing_service import start_trial, get_current_pricing
 from utils import keyboards, messages
 from utils.admin_notify import notify_admin
 
@@ -52,14 +54,14 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         with open("assets/images/Applixy_banner.png", "rb") as banner:
             await update.message.reply_photo(
                 photo=banner,
-                caption=messages.welcome_message(),
+                caption=messages.welcome_message(user.first_name),
                 reply_markup=keyboards.onboarding_welcome_keyboard(),
                 parse_mode="MarkdownV2",
             )
     except FileNotFoundError:
         logger.warning("Applixy_banner.png not found, falling back to text.")
         await update.message.reply_text(
-            messages.welcome_message(),
+            messages.welcome_message(user.first_name),
             reply_markup=keyboards.onboarding_welcome_keyboard(),
             parse_mode="MarkdownV2",
         )
@@ -268,7 +270,7 @@ async def _complete_onboarding(
     update: Update, context: ContextTypes.DEFAULT_TYPE,
     has_resume: bool = False, query=None,
 ) -> int:
-    """Finish onboarding — show summary and main menu."""
+    """Finish onboarding — activate trial, show trial activated message."""
     user_id = update.effective_user.id
     user_tg = update.effective_user
     await set_onboarded(user_id)
@@ -277,7 +279,11 @@ async def _complete_onboarding(
     location = context.user_data.get("location", "remote")
     exp = context.user_data.get("experience_level", "?")
 
-    msg = messages.onboarding_complete(skills, location, has_resume)
+    # Activate 3-day free trial for new user
+    db_pool = get_pool()
+    trial_expires_at = await start_trial(user_id, db_pool)
+
+    msg = messages.trial_activated_message(trial_expires_at)
     kb = keyboards.onboarding_complete_keyboard()
 
     if query:

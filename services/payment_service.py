@@ -21,40 +21,50 @@ PLAN_PRICES = {
 }
 
 
-async def create_payment_link(plan: str, telegram_id: int) -> str | None:
+async def create_payment_link(
+    plan: str,
+    telegram_id: int,
+    amount: int | None = None,
+    is_early_adopter: bool = False,
+) -> str | None:
     """
     Create a Razorpay payment link for a subscription plan.
 
     Args:
-        plan: Plan identifier (pro/proplus/premium)
+        plan: Plan identifier (pro)
         telegram_id: User's Telegram ID (for reference tracking)
+        amount: Price in INR (dynamic from pricing service). Falls back to PLAN_PRICES.
+        is_early_adopter: Whether this is an early adopter payment (passed to webhook).
 
     Returns:
         Payment URL string, or None on failure
     """
-    if plan not in PLAN_PRICES:
+    if plan not in PLAN_PRICES and amount is None:
         logger.error(f"Invalid plan: {plan}")
         return None
 
-    plan_info = PLAN_PRICES[plan]
+    plan_info = PLAN_PRICES.get(plan, {"name": "Pro"})
+    amount_paise = (amount * 100) if amount else plan_info.get("amount", 9900)
+    display_price = f"₹{amount}" if amount else plan_info.get("display", "₹99")
 
     try:
         import time
         client = _get_client()
         unique_ref = f"applixy_{telegram_id}_{plan}_{int(time.time())}"
         payment_link = client.payment_link.create({
-            "amount": plan_info["amount"],
+            "amount": amount_paise,
             "currency": "INR",
-            "description": f"ApplixyBot {plan_info['name']} Plan — 1 Month Access",
+            "description": f"ApplixyBot Pro Plan — 1 Month Access ({display_price})",
             "reference_id": unique_ref,
             "notes": {
                 "telegram_id": str(telegram_id),
                 "plan": plan,
+                "is_early_adopter": "true" if is_early_adopter else "false",
             }
         })
 
         url = payment_link.get("short_url")
-        logger.info(f"Payment link created for user {telegram_id}, plan {plan}: {url}")
+        logger.info(f"Payment link created for user {telegram_id}, plan {plan}, amount={display_price}, early={is_early_adopter}: {url}")
         return url
 
     except Exception as e:
