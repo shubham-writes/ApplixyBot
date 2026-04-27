@@ -49,46 +49,30 @@ async def get_manual_jobs(
     offset: int = 0,
 ) -> list[dict]:
     """
-    Fetch active manual jobs, sorted newest first.
-    Manual jobs are admin-curated and shown to ALL users regardless of location.
-    Optionally filtered by skill overlap to rank relevance.
+    Fetch ALL active manual jobs, sorted newest first.
+    Admin-curated jobs are always shown to every user regardless of skills or location.
+    Match scoring is handled in Python separately.
     """
     pool = get_pool()
     async with pool.acquire() as conn:
-        skills_lower = [s.lower() for s in (skills or [])]
+        rows = await conn.fetch(
+            """
+            SELECT * FROM manual_jobs
+            WHERE is_active = TRUE
+            ORDER BY posted_at DESC
+            LIMIT $1 OFFSET $2
+            """,
+            limit,
+            offset,
+        )
 
-        if skills_lower:
-            rows = await conn.fetch(
-                """
-                SELECT * FROM manual_jobs
-                WHERE is_active = TRUE
-                AND (skills && $1::text[] OR array_length(skills, 1) IS NULL)
-                ORDER BY posted_at DESC
-                LIMIT $2 OFFSET $3
-                """,
-                skills_lower,
-                limit,
-                offset,
-            )
-        else:
-            rows = await conn.fetch(
-                """
-                SELECT * FROM manual_jobs
-                WHERE is_active = TRUE
-                ORDER BY posted_at DESC
-                LIMIT $1 OFFSET $2
-                """,
-                limit,
-                offset,
-            )
-
-        # Tag each record so handlers know it's a manual job
         result = []
         for row in rows:
             d = dict(row)
             d["is_manual"] = True
             result.append(d)
         return result
+
 
 
 
