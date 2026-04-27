@@ -1,13 +1,10 @@
 import asyncio
 from db.connection import get_pool, init_db
 
-async def run():
+async def test():
     await init_db()
     pool = get_pool()
-    async with pool.acquire() as c:
-        rows = await c.fetch('SELECT title, skills, location FROM jobs WHERE is_active=TRUE LIMIT 10;')
-        for r in rows:
-            print(dict(r))
+    config = await pool.fetchrow('SELECT * FROM pricing_config LIMIT 1')
+    print('CONFIG:', config)
 
-if __name__ == "__main__":
-    asyncio.run(run())
+asyncio.run(test())

@@ -257,7 +257,7 @@ def format_job_list_message(jobs: list[dict], plan: str, total_count: int, user:
     """Format a list of jobs for display."""
     showing = len(jobs)
     header = f"🔍 *Today's Frontend Jobs* \\({showing} of {total_count} available\\)\n"
-    header += "━━━━━━━━━━━━━━━━━━━━\n\n"
+    header += "━━━━━━━━━━━━━━━━━━\n\n"
 
     lines = []
     nums = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣"]
@@ -369,7 +369,7 @@ def format_job_list_message(jobs: list[dict], plan: str, total_count: int, user:
         line += "\n"
         lines.append(line)
 
-    footer = "━━━━━━━━━━━━━━━━━━━━\n"
+    footer = "━━━━━━━━━━━━━━━━━━\n"
     if plan == "free":
         footer += escape_md(f"Showing {showing} of {total_count} (Free plan)")
 
@@ -627,7 +627,7 @@ def upgrade_early_adopter_message(pricing: dict) -> str:
 
     return (
         f"🔥 *Early Adopter Offer*\n\n"
-        f"*₹{ea_price}/month* (regular price ~~₹{reg_price}~~)\n"
+        f"*₹{ea_price}/month* \\(regular price ~₹{reg_price}~\\)\n"
         f"Lock this price in forever, it won't increase for you\\.\n\n"
         f"⏳ _Intro price available for next {days_left} days_\n\n"
         "━━━━━━━━━━━━━━━━━━\n\n"
