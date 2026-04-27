@@ -268,7 +268,9 @@ def format_job_list_message(jobs: list[dict], plan: str, total_count: int, user:
         company = escape_md(job.get("company") or "Unknown Company")
         location = escape_md(job.get("location", "Remote") or "Remote")
         salary = escape_md(job.get("salary", "")) if job.get("salary") else ""
-        url = job.get("url", "")
+        raw_url = job.get("url", "") or ""
+        # Only use URL if it's a real http link — avoids broken MarkdownV2 from "Not available"
+        url = raw_url.strip() if raw_url.strip().startswith("http") else ""
         skills_list = job.get("skills", [])
         skills_text = escape_md(", ".join(s.title() for s in skills_list[:6])) if skills_list else ""
 
@@ -325,7 +327,7 @@ def format_job_list_message(jobs: list[dict], plan: str, total_count: int, user:
             missing_skills = details["missing"]
             exp_note = details.get("exp_note")
             
-            if plan == "pro":
+            if plan in ("pro", "trial"):
                 if score >= 70:
                     match_text = f"🟢 {score}% match"
                 elif score >= 40:
@@ -400,7 +402,8 @@ def job_detail_message(job: dict, plan: str = "free", user: dict = None) -> str:
         subtitle_parts.append("💰 Not specified")
         
     subtitle_str = " \\| ".join(subtitle_parts)
-    url = job.get("url", "")
+    raw_url = job.get("url", "") or ""
+    url = raw_url.strip() if raw_url.strip().startswith("http") else ""
     portal = job.get("portal_type", "other")
     exp_req = job.get("experience_required")
     skills_list = job.get("skills", [])
