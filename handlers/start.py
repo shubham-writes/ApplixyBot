@@ -111,25 +111,10 @@ async def skill_toggle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     # Extract skill name from callback: skill_react, skill_vuejs, etc.
     skill_raw = query.data.replace("skill_", "")
 
-    # Map callback names back to display names
+    from utils.keyboards import ALL_SKILLS
     skill_map = {
-        "javascript": "JavaScript",
-        "typescript": "TypeScript",
-        "react": "React",
-        "nextjs": "Next.js",
-        "vue": "Vue",
-        "svelte": "Svelte",
-        "angular": "Angular",
-        "react_native": "React Native",
-        "html": "HTML",
-        "css": "CSS",
-        "tailwind": "Tailwind",
-        "figma": "Figma",
-        "nodejs": "Node.js",
-        "graphql": "GraphQL",
-        "git": "Git",
-        "github": "GitHub",
-        "ci/cd": "CI/CD",
+        s.lower().replace('.', '').replace(' ', '_').replace('/', '_'): s
+        for s in ALL_SKILLS
     }
 
     skill = skill_map.get(skill_raw, skill_raw)
@@ -200,11 +185,8 @@ async def location_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     await update_user_profile(user_id, location_pref=location)
     context.user_data["location"] = location
 
-    await query.edit_message_text(
-        "🎓 What year did you (or will you) graduate? \\(e\\.g\\. 2025\\)\n\n"
-        "Please type a 4\\-digit year:",
-        parse_mode="MarkdownV2",
-    )
+    text = messages.escape_md("🎓 What year did you (or will you) graduate? (e.g. 2025)\n\nPlease type a 4-digit year:")
+    await query.edit_message_text(text, parse_mode="MarkdownV2")
     return BATCH_YEAR
 
 async def batch_year_received(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -392,4 +374,5 @@ def get_start_handler() -> ConversationHandler:
         },
         fallbacks=[CommandHandler("cancel", cancel)],
         per_message=False,
+        allow_reentry=True,
     )

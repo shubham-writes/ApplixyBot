@@ -212,7 +212,7 @@ def compute_manual_job_match(user: dict, job: dict) -> dict:
     u_map = {"0": 0, "1": 1, "2": 2, "3_5": 4, "5_plus": 6, "5+": 6}
     u_exp_years = u_map.get(user_exp, 0)
     
-    min_yoe = job.get("min_yoe", 0)
+    min_yoe = job.get("experience_required") or 0
     if u_exp_years >= min_yoe:
         exp_pct = 100
         exp_note = f"✅ Meets experience ({min_yoe}+ yrs)"

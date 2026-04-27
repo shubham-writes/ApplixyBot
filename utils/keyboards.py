@@ -19,34 +19,42 @@ def onboarding_welcome_keyboard() -> InlineKeyboardMarkup:
     ])
 
 
-ALL_SKILLS = [
-    "JavaScript", "TypeScript", "React", "Next.js", 
-    "Vue", "Svelte", "Angular", "React Native",
-    "HTML", "CSS", "Tailwind", "Figma", 
-    "Node.js", "GraphQL", "Git", "GitHub", "CI/CD"
-]
+SKILL_CATEGORIES = {
+    "🛠️ Core Front-End": ["HTML", "CSS", "JavaScript", "TypeScript"],
+    "⚡ Frameworks": ["React", "Next.js", "Vue", "Angular", "Svelte", "React Native"],
+    "🎨 Styling & UI": ["Tailwind", "SCSS", "Figma", "Framer", "Bootstrap"],
+    "⚙️ Tools & DevOps": ["Git", "GitHub", "Node.js", "GraphQL", "CI/CD", "Docker"]
+}
+
+# Flatten for easy validation
+ALL_SKILLS = [skill for category in SKILL_CATEGORIES.values() for skill in category]
 
 
 def skills_keyboard(selected: list[str] | None = None) -> InlineKeyboardMarkup:
-    """Step 2: Skill selection grid with checkmarks."""
+    """Step 2: Skill selection grid with categorized checkmarks."""
     selected = selected or []
     buttons = []
-    row = []
 
-    for skill in ALL_SKILLS:
-        check = "✅ " if skill.lower() in [s.lower() for s in selected] else ""
-        row.append(
-            InlineKeyboardButton(
-                f"{check}{skill}",
-                callback_data=f"skill_{skill.lower().replace('.', '').replace(' ', '_')}",
+    for category_name, skills in SKILL_CATEGORIES.items():
+        # Add visual separator / header (non-clickable)
+        buttons.append([InlineKeyboardButton(f"── {category_name} ──", callback_data="ignore")])
+        
+        row = []
+        for skill in skills:
+            check = "✅ " if skill.lower() in [s.lower() for s in selected] else ""
+            row.append(
+                InlineKeyboardButton(
+                    f"{check}{skill}",
+                    callback_data=f"skill_{skill.lower().replace('.', '').replace(' ', '_').replace('/', '_')}",
+                )
             )
-        )
-        if len(row) == 3:
+            # 2 columns per row looks cleaner with long skill names
+            if len(row) == 2:
+                buttons.append(row)
+                row = []
+                
+        if row:
             buttons.append(row)
-            row = []
-
-    if row:
-        buttons.append(row)
 
     buttons.append([
         InlineKeyboardButton("✅ Done — Save my skills", callback_data="skills_done")
@@ -55,19 +63,19 @@ def skills_keyboard(selected: list[str] | None = None) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(buttons)
 
 
-def experience_keyboard() -> InlineKeyboardMarkup:
+def experience_keyboard(prefix: str = "exp_") -> InlineKeyboardMarkup:
     """Step 2.5: Years of Experience."""
     return InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("🎓 Fresher (0 yrs)", callback_data="exp_0"),
-            InlineKeyboardButton("🌱 1 Year", callback_data="exp_1"),
+            InlineKeyboardButton("🎓 Fresher (0 yrs)", callback_data=f"{prefix}0"),
+            InlineKeyboardButton("🌱 1 Year", callback_data=f"{prefix}1"),
         ],
         [
-            InlineKeyboardButton("🚀 2 Years", callback_data="exp_2"),
-            InlineKeyboardButton("⚡ 3-5 Years", callback_data="exp_3_5"),
+            InlineKeyboardButton("🚀 2 Years", callback_data=f"{prefix}2"),
+            InlineKeyboardButton("⚡ 3-5 Years", callback_data=f"{prefix}3_5"),
         ],
         [
-            InlineKeyboardButton("🔥 5+ Years", callback_data="exp_5_plus"),
+            InlineKeyboardButton("🔥 5+ Years", callback_data=f"{prefix}5_plus"),
         ]
     ])
 

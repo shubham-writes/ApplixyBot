@@ -57,24 +57,10 @@ async def settings_skill_toggle(update: Update, context: ContextTypes.DEFAULT_TY
     selected = context.user_data.get("edit_skills", [])
     skill_raw = query.data.replace("skill_", "")
 
+    from utils.keyboards import ALL_SKILLS
     skill_map = {
-        "javascript": "JavaScript",
-        "typescript": "TypeScript",
-        "react": "React",
-        "nextjs": "Next.js",
-        "vue": "Vue",
-        "svelte": "Svelte",
-        "angular": "Angular",
-        "react_native": "React Native",
-        "html": "HTML",
-        "css": "CSS",
-        "tailwind": "Tailwind",
-        "figma": "Figma",
-        "nodejs": "Node.js",
-        "graphql": "GraphQL",
-        "git": "Git",
-        "github": "GitHub",
-        "ci/cd": "CI/CD",
+        s.lower().replace('.', '').replace(' ', '_').replace('/', '_'): s
+        for s in ALL_SKILLS
     }
     skill = skill_map.get(skill_raw, skill_raw)
 
@@ -113,35 +99,28 @@ async def settings_skills_done(update: Update, context: ContextTypes.DEFAULT_TYP
 # Edit Experience from Settings
 # ──────────────────────────────────────────────
 
-async def settings_edit_experience(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def settings_change_experience(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Show experience selection."""
     query = update.callback_query
     await query.answer()
 
     await query.edit_message_text(
-        "🧠 *Edit Experience*\n\nHow many years of professional experience do you have?",
-        reply_markup=keyboards.experience_keyboard(),
+        "🧠 *Edit Experience Level*\n\nHow many years of professional experience do you have?",
+        reply_markup=keyboards.experience_keyboard(prefix="setexp_"),
         parse_mode="MarkdownV2",
     )
 
 async def settings_experience_save(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Save experience from settings and return."""
+    """Save the new experience level."""
     query = update.callback_query
     await query.answer()
 
-    exp_val = query.data.replace("exp_", "")
+    exp_val = query.data.replace("setexp_", "")
     user_id = update.effective_user.id
     
     await update_user_profile(user_id, experience_level=exp_val)
 
-    exp_display = exp_val.replace('_', ' ').replace('plus', '+').title()
-    if exp_val == "0":
-        exp_display = "Fresher (0 yrs)"
-    elif exp_val == "1":
-        exp_display = "1 Year"
-    elif exp_val == "2":
-        exp_display = "2 Years"
-
+    exp_display = exp_val.replace('_plus', '+').replace('_', '-')
     await query.edit_message_text(
         f"✅ Experience updated to: *{escape_md(exp_display)}*\n",
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Back to Settings", callback_data="menu_settings")]]),
