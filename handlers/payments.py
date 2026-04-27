@@ -47,9 +47,10 @@ async def upgrade_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         msg = messages.upgrade_regular_message(pricing)
         btn_label = f"💳 Upgrade to Pro — ₹{pricing['current_price']}/mo"
 
-    kb = InlineKeyboardMarkup([[
-        InlineKeyboardButton(btn_label, callback_data="upgrade_pro")
-    ]])
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton(btn_label, callback_data="upgrade_pro")],
+        [InlineKeyboardButton("🔙 Back to Menu", callback_data="back_menu")]
+    ])
 
     if update.callback_query:
         await update.callback_query.answer()

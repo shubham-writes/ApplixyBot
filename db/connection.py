@@ -52,6 +52,7 @@ async def init_db() -> asyncpg.Pool:
             await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_trial BOOLEAN DEFAULT FALSE;")
             await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_early_adopter BOOLEAN DEFAULT FALSE;")
             await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS joined_at TIMESTAMPTZ DEFAULT NOW();")
+            await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS batch_year INT;")
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS pricing_config (
                     id                   SERIAL PRIMARY KEY,

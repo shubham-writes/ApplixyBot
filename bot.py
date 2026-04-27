@@ -18,6 +18,7 @@ from handlers.settings import (
     settings_change_experience, settings_experience_save,
     settings_change_location, settings_location_save,
     settings_alert_time, settings_alert_time_save,
+    settings_change_batch, settings_batch_save,
     cancel_subscription_prompt, cancel_subscription_confirm,
 )
 from handlers.payments import upgrade_command, checkout_handler
@@ -104,6 +105,8 @@ def build_bot() -> Application:
     app.add_handler(CallbackQueryHandler(settings_location_save, pattern="^setloc_"))
     app.add_handler(CallbackQueryHandler(settings_alert_time, pattern="^settings_alert_time$"))
     app.add_handler(CallbackQueryHandler(settings_alert_time_save, pattern="^setalert_"))
+    app.add_handler(CallbackQueryHandler(settings_change_batch, pattern="^settings_batch$"))
+    app.add_handler(CallbackQueryHandler(settings_batch_save, pattern="^setbatch_"))
     app.add_handler(CallbackQueryHandler(delete_account_prompt, pattern="^settings_delete$"))
     app.add_handler(CallbackQueryHandler(delete_account_confirm, pattern="^confirm_delete_yes$"))
     app.add_handler(CallbackQueryHandler(cancel_subscription_prompt, pattern="^settings_cancel_sub$"))

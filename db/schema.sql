@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
     resume_text      TEXT,                           -- extracted PDF text
     resume_filename  TEXT,
     experience_level TEXT DEFAULT '0',               -- options: '0', '1', '2', '3-5', '5+'
+    batch_year       INT,                            -- graduation year e.g. 2024, 2025
     cover_letters_used  INT DEFAULT 0,               -- resets monthly
     cover_letters_reset TIMESTAMPTZ DEFAULT NOW(),   -- when counter was last reset
     auto_applies_today  INT DEFAULT 0,               -- resets daily

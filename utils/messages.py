@@ -689,31 +689,71 @@ def settings_menu() -> str:
 
 
 def user_status(user: dict) -> str:
-    plan_display = {"free": "🆓 Free", "pro": "⭐ Pro", "proplus": "🚀 Pro+", "premium": "💎 Premium"}
+    from datetime import datetime, timezone
+
     plan = user.get("plan", "free")
-    plan_label = escape_md(plan_display.get(plan, "🆓 Free"))
+    is_trial = user.get("is_trial", False)
+    trial_expires = user.get("trial_expires_at")
+
+    # ── Plan badge ──
+    if plan == "pro" and not is_trial:
+        early_tag = " 🔒 Early Adopter" if user.get("is_early_adopter") else ""
+        expires_at = user.get("plan_expires_at")
+        date_str = expires_at.strftime("%b %d, %Y") if expires_at else "Unknown"
+        plan_label = escape_md(f"⭐ Pro{early_tag} — renews {date_str}")
+        sub_status = user.get("subscription_status", "")
+        if sub_status == "cancelling":
+            plan_label += escape_md(" (Cancels at cycle end)")
+    elif is_trial and trial_expires:
+        now = datetime.now(timezone.utc)
+        remaining = trial_expires - now
+        hours = max(0, int(remaining.total_seconds() / 3600))
+        if hours > 0:
+            plan_label = escape_md(f"⚡ Pro Trial — {hours}h left")
+        else:
+            plan_label = escape_md("🆓 Free (trial ended)")
+            plan = "free"  # treat as free for limit display
+            is_trial = False
+    elif plan == "proplus":
+        plan_label = "🚀 Pro\\+"
+    elif plan == "premium":
+        plan_label = "💎 Premium"
+    else:
+        plan_label = "🆓 Free"
+
+    # ── Skills ──
     skills = escape_md(", ".join(user.get("skills", []))) or "None"
+
+    # ── Location ──
     loc_map = {"remote": "🌏 Remote", "india": "🇮🇳 India", "both": "🌐 Both"}
     location = escape_md(loc_map.get(user.get("location_pref", "remote"), "Remote"))
+
+    # ── Alert time ──
     alert_time = escape_md(user.get("alert_time", "09:00"))
 
-    # Cover letters — daily limit based on plan
-    cl_used = user.get("cover_letters_today", 0)
-    if plan in ("proplus", "premium"):
-        cl_max = "∞"
-        cl_label = f"{cl_used}/{cl_max} today"
-    elif plan == "pro":
-        cl_max = "10"
-        cl_label = f"{cl_used}/{cl_max} today"
-    else:
-        cl_max = "1"
-        cl_label = f"{cl_used}/{cl_max} today"
+    # ── Experience ──
+    exp_raw = user.get("experience_level", "0") or "0"
+    exp_display_map = {"0": "Fresher (0 yrs)", "1": "1 Year", "2": "2 Years", "3_5": "3–5 Years", "5_plus": "5+ Years", "5+": "5+ Years"}
+    exp_display = escape_md(exp_display_map.get(str(exp_raw), str(exp_raw)))
 
-    # ATS checks — daily limit based on plan
+    # ── Batch year ──
+    batch_year = user.get("batch_year")
+    batch_display = escape_md(str(batch_year)) if batch_year else "Not set"
+
+    # ── Cover letters ──
+    cl_used = user.get("cover_letters_today", 0) or 0
+    if plan in ("proplus", "premium"):
+        cl_label = f"{cl_used}/∞ today"
+    elif plan == "pro" or is_trial:
+        cl_label = f"{cl_used}/10 today"
+    else:
+        cl_label = f"{cl_used}/1 today"
+
+    # ── ATS checks ──
     ats_used = user.get("ats_checks_today", 0) or 0
     if plan in ("proplus", "premium"):
         ats_label = f"{ats_used}/∞ today"
-    elif plan == "pro":
+    elif plan == "pro" or is_trial:
         ats_label = f"{ats_used}/5 today"
     else:
         ats_label = f"{ats_used}/1 today"
@@ -726,7 +766,9 @@ def user_status(user: dict) -> str:
         f"*Skills:* {skills}\n"
         f"*Location:* {location}\n"
         f"*Alert Time:* {alert_time} IST\n"
-        f"*Resume:* {resume_status}\n\n"
+        f"*Resume:* {resume_status}\n"
+        f"*YOE:* {exp_display}\n"
+        f"*Batch:* {batch_display}\n\n"
         f"*Cover Letters:* {escape_md(cl_label)}\n"
         f"*ATS Checks:* {escape_md(ats_label)}"
     )

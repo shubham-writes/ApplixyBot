@@ -352,10 +352,11 @@ def settings_keyboard(is_active_pro: bool = False) -> InlineKeyboardMarkup:
             InlineKeyboardButton("🧠 Edit Experience", callback_data="settings_experience"),
         ],
         [
+            InlineKeyboardButton("🎓 Edit Batch Year", callback_data="settings_batch"),
             InlineKeyboardButton("📍 Change Location", callback_data="settings_location"),
-            InlineKeyboardButton("⏰ Alert Time", callback_data="settings_alert_time"),
         ],
         [
+            InlineKeyboardButton("⏰ Alert Time", callback_data="settings_alert_time"),
             InlineKeyboardButton("📊 My Status", callback_data="settings_status"),
         ],
         [

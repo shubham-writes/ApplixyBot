@@ -134,6 +134,52 @@ async def settings_experience_save(update: Update, context: ContextTypes.DEFAULT
     )
 
 
+
+# ──────────────────────────────────────────────
+# Edit Batch Year from Settings
+# ──────────────────────────────────────────────
+
+async def settings_change_batch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show batch year selection buttons (2020–2028)."""
+    query = update.callback_query
+    await query.answer()
+
+    current_year = 2025
+    years = list(range(2020, 2029))
+    rows = []
+    row = []
+    for y in years:
+        row.append(InlineKeyboardButton(str(y), callback_data=f"setbatch_{y}"))
+        if len(row) == 3:
+            rows.append(row)
+            row = []
+    if row:
+        rows.append(row)
+    rows.append([InlineKeyboardButton("🔙 Back to Settings", callback_data="menu_settings")])
+
+    await query.edit_message_text(
+        "🎓 *Edit Batch Year*\n\nSelect your graduation year:",
+        reply_markup=InlineKeyboardMarkup(rows),
+        parse_mode="MarkdownV2",
+    )
+
+
+async def settings_batch_save(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Save selected batch year."""
+    query = update.callback_query
+    await query.answer()
+
+    batch_val = int(query.data.replace("setbatch_", ""))
+    user_id = update.effective_user.id
+    await update_user_profile(user_id, batch_year=batch_val)
+
+    await query.edit_message_text(
+        f"✅ Batch year updated to: *{batch_val}*",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Back to Settings", callback_data="menu_settings")]]),
+        parse_mode="MarkdownV2",
+    )
+
+
 # ──────────────────────────────────────────────
 # Change Location from Settings
 # ──────────────────────────────────────────────
