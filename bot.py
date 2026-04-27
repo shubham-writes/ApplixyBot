@@ -8,7 +8,7 @@ from config import settings
 
 from handlers.start import get_start_handler
 from handlers.menu import menu_command, back_to_menu
-from handlers.jobs import view_jobs, view_job_detail, save_job_callback, unsave_job_callback, save_manual_job_callback
+from handlers.jobs import view_jobs, view_job_detail, save_job_callback, unsave_job_callback, save_manual_job_callback, unsave_manual_job_callback
 from handlers.cover_letter import generate_cover_letter_callback, copy_cover_letter, coverletter_menu_handler
 from handlers.resume import view_resume, ats_analyze_prompt, ats_analyze_result, ats_analyze_job_callback
 from handlers.settings import (
@@ -75,6 +75,7 @@ def build_bot() -> Application:
     app.add_handler(CallbackQueryHandler(save_job_callback, pattern="^job_save_"))
     app.add_handler(CallbackQueryHandler(unsave_job_callback, pattern="^job_unsave_"))
     app.add_handler(CallbackQueryHandler(save_manual_job_callback, pattern="^manual_job_save_"))
+    app.add_handler(CallbackQueryHandler(unsave_manual_job_callback, pattern="^manual_job_unsave_"))
     app.add_handler(CallbackQueryHandler(view_jobs, pattern="^jobs_page_"))
 
     # Cover Letter Callbacks

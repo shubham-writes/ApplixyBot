@@ -121,9 +121,16 @@ async def view_job_detail(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     query = update.callback_query
     await query.answer()
 
-    # Data format: job_view_123 or manual_view_123
+    # Data format: job_view_123 or manual_view_123 or job_view_123_saved
     data_parts = query.data.split("_")
-    job_id = int(data_parts[-1])
+    
+    from_saved = False
+    if data_parts[-1] == "saved":
+        from_saved = True
+        job_id = int(data_parts[-2])
+    else:
+        job_id = int(data_parts[-1])
+        
     is_manual = "manual" in query.data
 
     if is_manual:
@@ -146,7 +153,7 @@ async def view_job_detail(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     user_exp = user.get("experience_level", "0")
 
     msg = messages.job_detail_message(job, plan=plan, user=user)
-    kb = keyboards.job_detail_keyboard(job, plan=plan, user_skills=user_skills)
+    kb = keyboards.job_detail_keyboard(job, plan=plan, user_skills=user_skills, from_saved=from_saved)
 
     await query.edit_message_text(msg, reply_markup=kb, parse_mode="MarkdownV2", disable_web_page_preview=True)
 
@@ -171,6 +178,20 @@ async def unsave_job_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     job_id = int(query.data.split("_")[-1])
 
     await unsave_job(user_id, job_id)
+    await query.answer("🗑 Job removed from saved list.")
+
+    # Refresh saved jobs list after deletion
+    from handlers.settings import view_saved_jobs
+    await view_saved_jobs(update, context)
+
+
+async def unsave_manual_job_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle unsaving a manual job (from saved jobs list)."""
+    query = update.callback_query
+    user_id = update.effective_user.id
+    manual_job_id = int(query.data.split("_")[-1])
+
+    await unsave_manual_job(user_id, manual_job_id)
     await query.answer("🗑 Job removed from saved list.")
 
     # Refresh saved jobs list after deletion

@@ -223,7 +223,7 @@ def job_list_keyboard(jobs: list[dict], plan: str, total_count: int = 0, page: i
     return InlineKeyboardMarkup(buttons)
 
 
-def job_detail_keyboard(job: dict, plan: str, user_skills: list[str] = None) -> InlineKeyboardMarkup:
+def job_detail_keyboard(job: dict, plan: str, user_skills: list[str] = None, from_saved: bool = False) -> InlineKeyboardMarkup:
     """Actions for a single job detail view."""
     is_manual = job.get("is_manual", False)
     prefix = "manual" if is_manual else "job"
@@ -259,9 +259,14 @@ def job_detail_keyboard(job: dict, plan: str, user_skills: list[str] = None) -> 
         elif score < 40:
             buttons.insert(0, [InlineKeyboardButton("🔍 See What's Missing → Go Pro", callback_data="menu_upgrade")])
 
-    buttons.append([
-        InlineKeyboardButton("🔙 Back to Jobs", callback_data="menu_jobs")
-    ])
+    if from_saved:
+        buttons.append([
+            InlineKeyboardButton("🔙 Back to Saved Jobs", callback_data="menu_saved")
+        ])
+    else:
+        buttons.append([
+            InlineKeyboardButton("🔙 Back to Jobs", callback_data="menu_jobs")
+        ])
 
     return InlineKeyboardMarkup(buttons)
 
@@ -396,12 +401,16 @@ def saved_jobs_keyboard(jobs: list[dict]) -> InlineKeyboardMarkup:
     """Saved jobs list with remove options."""
     buttons = []
     for i, job in enumerate(jobs[:10], 1):
+        is_manual = job.get("is_manual", False)
+        prefix = "manual" if is_manual else "job"
+        unsave_callback = f"manual_job_unsave_{job['id']}" if is_manual else f"job_unsave_{job['id']}"
+        
         buttons.append([
             InlineKeyboardButton(
                 f"{i}. {job['title'][:30]} — {job.get('company', 'N/A')}",
-                callback_data=f"job_view_{job['id']}",
+                callback_data=f"{prefix}_view_{job['id']}_saved",
             ),
-            InlineKeyboardButton("🗑", callback_data=f"job_unsave_{job['id']}"),
+            InlineKeyboardButton("🗑", callback_data=unsave_callback),
         ])
 
     buttons.append([
