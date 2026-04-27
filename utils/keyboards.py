@@ -223,7 +223,7 @@ def job_list_keyboard(jobs: list[dict], plan: str, total_count: int = 0, page: i
     return InlineKeyboardMarkup(buttons)
 
 
-def job_detail_keyboard(job: dict, plan: str, user_skills: list[str] = None, from_saved: bool = False) -> InlineKeyboardMarkup:
+def job_detail_keyboard(job: dict, plan: str, score: int = -1, from_saved: bool = False) -> InlineKeyboardMarkup:
     """Actions for a single job detail view."""
     is_manual = job.get("is_manual", False)
     prefix = "manual" if is_manual else "job"
@@ -246,17 +246,14 @@ def job_detail_keyboard(job: dict, plan: str, user_skills: list[str] = None, fro
         ]
     ]
 
-    if plan == "pro":
+    if plan in ("pro", "trial"):
         buttons.append([
             InlineKeyboardButton("📊 ATS Analyze This Job", callback_data=f"{ats_prefix}_job_{job['id']}"),
         ])
-    elif user_skills is not None:
-        from utils.messages import compute_match_details
-        details = compute_match_details(user_skills, job.get("skills", []))
-        score = details["score"]
+    elif score >= 0:
         if score >= 70:
             buttons.insert(0, [InlineKeyboardButton("🔍 Unlock Match Breakdown → Go Pro", callback_data="menu_upgrade")])
-        elif score < 40:
+        elif score < 70:
             buttons.insert(0, [InlineKeyboardButton("🔍 See What's Missing → Go Pro", callback_data="menu_upgrade")])
 
     if from_saved:

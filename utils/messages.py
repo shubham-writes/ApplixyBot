@@ -425,7 +425,7 @@ def job_detail_message(job: dict, plan: str = "free", user: dict = None) -> str:
         missing_skills = details["missing"]
         exp_note = details.get("exp_note")
 
-        if plan == "pro":
+        if plan in ("pro", "trial"):
             # Score badge
             if score >= 70:
                 badge = f"🟢 *{score}% Match*"
@@ -455,7 +455,12 @@ def job_detail_message(job: dict, plan: str = "free", user: dict = None) -> str:
                     "\n👆 *You're a strong match for this one\\.*\n"
                     "Upgrade to see your full skill breakdown\\.\n\n"
                 )
-            elif score < 40:
+            elif score >= 40:
+                match_section = (
+                    "\n⚠️ *You're a partial match for this one\\.*\n"
+                    "Upgrade to see which skills you're missing\\.\n\n"
+                )
+            else:
                 match_section = (
                     "\n⚠️ *You might be underqualified for this one\\.*\n"
                     "Upgrade to see which skills you're missing\\.\n\n"

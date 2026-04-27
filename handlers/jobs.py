@@ -152,8 +152,16 @@ async def view_job_detail(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     user_skills = user.get("skills", [])
     user_exp = user.get("experience_level", "0")
 
+    if job.get("is_manual"):
+        from utils.messages import compute_manual_job_match
+        details = compute_manual_job_match(user, job)
+    else:
+        from utils.messages import compute_match_details
+        details = compute_match_details(user_skills, job.get("skills", []), str(user_exp), job.get("experience_required"))
+    score = details["score"]
+
     msg = messages.job_detail_message(job, plan=plan, user=user)
-    kb = keyboards.job_detail_keyboard(job, plan=plan, user_skills=user_skills, from_saved=from_saved)
+    kb = keyboards.job_detail_keyboard(job, plan=plan, score=score, from_saved=from_saved)
 
     await query.edit_message_text(msg, reply_markup=kb, parse_mode="MarkdownV2", disable_web_page_preview=True)
 
