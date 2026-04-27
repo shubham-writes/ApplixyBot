@@ -194,21 +194,63 @@ async def unsave_job(telegram_id: int, job_id: int) -> bool:
         return result == "DELETE 1"
 
 
-async def get_saved_jobs(telegram_id: int) -> list[dict]:
-    """Get all saved/bookmarked jobs for a user."""
+async def save_manual_job(telegram_id: int, manual_job_id: int) -> bool:
+    """Bookmark a manual job. Returns True if saved, False if already saved."""
     pool = get_pool()
     async with pool.acquire() as conn:
-        rows = await conn.fetch(
+        try:
+            await conn.execute(
+                "INSERT INTO saved_jobs (telegram_id, manual_job_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+                telegram_id,
+                manual_job_id,
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Save manual job error: {e}")
+            return False
+
+
+async def unsave_manual_job(telegram_id: int, manual_job_id: int) -> bool:
+    """Remove a manual job bookmark."""
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.execute(
+            "DELETE FROM saved_jobs WHERE telegram_id = $1 AND manual_job_id = $2",
+            telegram_id,
+            manual_job_id,
+        )
+        return result == "DELETE 1"
+
+
+async def get_saved_jobs(telegram_id: int) -> list[dict]:
+    """Get all saved/bookmarked jobs for a user (both scraped and manual)."""
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        # Scraped jobs
+        scraped_rows = await conn.fetch(
             """
-            SELECT j.*, sj.saved_at
+            SELECT j.*, sj.saved_at, FALSE AS is_manual
             FROM saved_jobs sj
             JOIN jobs j ON sj.job_id = j.id
-            WHERE sj.telegram_id = $1
+            WHERE sj.telegram_id = $1 AND sj.job_id IS NOT NULL
             ORDER BY sj.saved_at DESC
             """,
             telegram_id,
         )
-        return [dict(row) for row in rows]
+        # Manual jobs
+        manual_rows = await conn.fetch(
+            """
+            SELECT mj.*, sj.saved_at, TRUE AS is_manual
+            FROM saved_jobs sj
+            JOIN manual_jobs mj ON sj.manual_job_id = mj.id
+            WHERE sj.telegram_id = $1 AND sj.manual_job_id IS NOT NULL
+            ORDER BY sj.saved_at DESC
+            """,
+            telegram_id,
+        )
+        combined = [dict(r) for r in scraped_rows] + [dict(r) for r in manual_rows]
+        combined.sort(key=lambda x: x["saved_at"], reverse=True)
+        return combined
 
 
 async def log_application(

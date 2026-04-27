@@ -105,6 +105,8 @@ async def init_db() -> asyncpg.Pool:
             """)
             await conn.execute("CREATE INDEX IF NOT EXISTS idx_manual_jobs_active ON manual_jobs (is_active, posted_at DESC);")
             await conn.execute("CREATE INDEX IF NOT EXISTS idx_manual_jobs_skills ON manual_jobs USING GIN (skills);")
+            # Add manual_job_id to saved_jobs so users can bookmark manual jobs too
+            await conn.execute("ALTER TABLE saved_jobs ADD COLUMN IF NOT EXISTS manual_job_id INT REFERENCES manual_jobs(id) ON DELETE CASCADE;")
         except Exception as e:
             logger.warning(f"Failed to apply manual_jobs migrations: {e}")
 

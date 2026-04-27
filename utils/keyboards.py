@@ -176,7 +176,11 @@ def job_list_keyboard(jobs: list[dict], plan: str, total_count: int = 0, page: i
             InlineKeyboardButton(f"{num} Apply", callback_data=f"{prefix}_view_{job['id']}")
         )
         
-        if not is_manual:
+        if is_manual:
+            save_row.append(
+                InlineKeyboardButton(f"💾 Save #{i}", callback_data=f"manual_job_save_{job['id']}")
+            )
+        else:
             save_row.append(
                 InlineKeyboardButton(f"💾 Save #{i}", callback_data=f"job_save_{job['id']}")
             )
@@ -229,7 +233,9 @@ def job_detail_keyboard(job: dict, plan: str, user_skills: list[str] = None) -> 
     top_row = [
         InlineKeyboardButton("✍️ Cover Letter", callback_data=f"{cl_prefix}_generate_{job['id']}"),
     ]
-    if not is_manual:
+    if is_manual:
+        top_row.append(InlineKeyboardButton("💾 Save", callback_data=f"manual_job_save_{job['id']}"))
+    else:
         top_row.append(InlineKeyboardButton("💾 Save", callback_data=f"job_save_{job['id']}"))
 
     buttons = [

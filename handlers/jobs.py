@@ -6,7 +6,7 @@ from telegram.ext import ContextTypes
 from loguru import logger
 
 from db.users import get_user, increment_jobs_seen
-from db.jobs import get_matching_jobs, count_matching_jobs, get_job_by_id, save_job, unsave_job
+from db.jobs import get_matching_jobs, count_matching_jobs, get_job_by_id, save_job, unsave_job, save_manual_job, unsave_manual_job
 from db.manual_jobs import get_manual_jobs, get_manual_job_by_id
 from db.connection import get_pool
 from services.reset_service import check_and_reset_daily
@@ -176,3 +176,16 @@ async def unsave_job_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     # Refresh saved jobs list after deletion
     from handlers.settings import view_saved_jobs
     await view_saved_jobs(update, context)
+
+
+async def save_manual_job_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle saving a manual (admin-curated) job."""
+    query = update.callback_query
+    user_id = update.effective_user.id
+    manual_job_id = int(query.data.split("_")[-1])
+
+    saved = await save_manual_job(user_id, manual_job_id)
+    if saved:
+        await query.answer("✅ Job saved!")
+    else:
+        await query.answer("ℹ️ Job already saved.")
