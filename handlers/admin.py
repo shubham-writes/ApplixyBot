@@ -31,7 +31,7 @@ async def addjob_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         "React Developer - Oracle\n"
         "Job link: https://wellfound-react-remote-us\n"
         "📍 Remote - US | 6 month Internship | 25K/Month\n"
-        "🎓 2025/2026 | 1+ YOE\n"
+        "🎓 2025/2026 | 2-4 YOE  (batches optional, YOE can be range like 2-4 or single like 1+)\n"
         "🏷 Typescript, React, Next.Js, CSS, Git\n"
         "⏰ 22d ago  (Optional)\n\n"
         "Type /cancel to abort.",
@@ -89,11 +89,11 @@ async def parse_and_add_job(update: Update, context: ContextTypes.DEFAULT_TYPE) 
                 if p.isdigit():
                     batches.append(int(p))
         
+        import re
         min_yoe = 0
-        for char in yoe_str:
-            if char.isdigit():
-                min_yoe = int(char)
-                break
+        yoe_digits = re.findall(r'\d+', yoe_str)
+        if yoe_digits:
+            min_yoe = int(yoe_digits[0])  # Take the minimum (first) number in a range like "2-4"
 
         # Line 5: Skills
         skills_str = lines[4].replace("🏷", "").strip()

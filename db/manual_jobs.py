@@ -50,36 +50,19 @@ async def get_manual_jobs(
 ) -> list[dict]:
     """
     Fetch active manual jobs, sorted newest first.
-    Optionally filtered by skill overlap and location.
-    Always returns ALL active manual jobs (we filter & rank in Python by match score).
+    Manual jobs are admin-curated and shown to ALL users regardless of location.
+    Optionally filtered by skill overlap to rank relevance.
     """
     pool = get_pool()
     async with pool.acquire() as conn:
-        location_filter = ""
-        if location == "remote":
-            location_filter = "AND (LOWER(location) LIKE '%remote%' OR location IS NULL)"
-        elif location == "india":
-            location_filter = (
-                "AND (LOWER(location) LIKE '%india%' "
-                "OR LOWER(location) LIKE '%bangalore%' "
-                "OR LOWER(location) LIKE '%mumbai%' "
-                "OR LOWER(location) LIKE '%delhi%' "
-                "OR LOWER(location) LIKE '%hyderabad%' "
-                "OR LOWER(location) LIKE '%pune%' "
-                "OR LOWER(location) LIKE '%chennai%' "
-                "OR LOWER(location) LIKE '%remote%' "
-                "OR location IS NULL)"
-            )
-
         skills_lower = [s.lower() for s in (skills or [])]
 
         if skills_lower:
             rows = await conn.fetch(
-                f"""
+                """
                 SELECT * FROM manual_jobs
                 WHERE is_active = TRUE
                 AND (skills && $1::text[] OR array_length(skills, 1) IS NULL)
-                {location_filter}
                 ORDER BY posted_at DESC
                 LIMIT $2 OFFSET $3
                 """,
@@ -89,10 +72,9 @@ async def get_manual_jobs(
             )
         else:
             rows = await conn.fetch(
-                f"""
+                """
                 SELECT * FROM manual_jobs
                 WHERE is_active = TRUE
-                {location_filter}
                 ORDER BY posted_at DESC
                 LIMIT $1 OFFSET $2
                 """,
@@ -107,6 +89,7 @@ async def get_manual_jobs(
             d["is_manual"] = True
             result.append(d)
         return result
+
 
 
 async def get_manual_job_by_id(job_id: int) -> dict | None:
