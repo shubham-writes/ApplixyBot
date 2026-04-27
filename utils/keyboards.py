@@ -344,9 +344,9 @@ def upgrade_keyboard() -> InlineKeyboardMarkup:
 # Settings
 # ──────────────────────────────────────────────
 
-def settings_keyboard() -> InlineKeyboardMarkup:
+def settings_keyboard(is_active_pro: bool = False) -> InlineKeyboardMarkup:
     """Settings menu."""
-    return InlineKeyboardMarkup([
+    buttons = [
         [
             InlineKeyboardButton("🏷 Edit Skills", callback_data="settings_skills"),
             InlineKeyboardButton("🧠 Edit Experience", callback_data="settings_experience"),
@@ -361,10 +361,18 @@ def settings_keyboard() -> InlineKeyboardMarkup:
         [
             InlineKeyboardButton("🗑 Delete Account", callback_data="settings_delete"),
         ],
-        [
-            InlineKeyboardButton("🔙 Back to Menu", callback_data="back_menu"),
-        ],
+    ]
+
+    if is_active_pro:
+        buttons.insert(-1, [
+            InlineKeyboardButton("🛑 Cancel Subscription", callback_data="settings_cancel_sub"),
+        ])
+
+    buttons.append([
+        InlineKeyboardButton("🔙 Back to Menu", callback_data="back_menu"),
     ])
+
+    return InlineKeyboardMarkup(buttons)
 
 
 def confirm_delete_keyboard() -> InlineKeyboardMarkup:

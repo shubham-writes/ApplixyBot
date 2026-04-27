@@ -13,17 +13,23 @@ from utils.helpers import escape_md
 
 async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /settings."""
+    user_id = update.effective_user.id
+    user = await get_user(user_id)
+    is_active_pro = False
+    if user and user.get("plan") != "free" and user.get("subscription_status") == "active":
+        is_active_pro = True
+
     if update.callback_query:
         await update.callback_query.answer()
         await update.callback_query.edit_message_text(
             messages.settings_menu(),
-            reply_markup=keyboards.settings_keyboard(),
+            reply_markup=keyboards.settings_keyboard(is_active_pro),
             parse_mode="MarkdownV2"
         )
     else:
         await update.message.reply_text(
             messages.settings_menu(),
-            reply_markup=keyboards.settings_keyboard(),
+            reply_markup=keyboards.settings_keyboard(is_active_pro),
             parse_mode="MarkdownV2"
         )
 
@@ -309,10 +315,64 @@ async def delete_account_confirm(update: Update, context: ContextTypes.DEFAULT_T
     user_id = update.effective_user.id
     from services.resume_parser import delete_resume_file
     
-    await delete_user(user_id)
-    delete_resume_file(user_id)
+    success = await delete_user(user_id)
+    if success:
+        delete_resume_file(user_id)
+        logger.info(f"User {user_id} deleted their account.")
+        await query.edit_message_text(messages.account_deleted(), parse_mode="MarkdownV2")
+    else:
+        await query.edit_message_text("❌ Something went wrong\\. Please try again\\.", parse_mode="MarkdownV2")
 
+
+# ──────────────────────────────────────────────
+# Subscription Cancellation
+# ──────────────────────────────────────────────
+
+async def cancel_subscription_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Prompt user before cancelling subscription."""
+    query = update.callback_query
+    await query.answer()
+    
+    kb = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("⚠️ Yes, Cancel My Subscription", callback_data="confirm_cancel_sub"),
+            InlineKeyboardButton("❌ Keep Pro", callback_data="menu_settings"),
+        ]
+    ])
+    
     await query.edit_message_text(
-        messages.account_deleted(),
+        "⚠️ *Cancel Subscription*\n\n"
+        "Are you sure you want to cancel your Applixy Pro subscription?\n"
+        "• You will not be billed again\\.\n"
+        "• You will keep your Pro benefits until the end of your current billing cycle\\.",
+        reply_markup=kb,
         parse_mode="MarkdownV2"
     )
+
+async def cancel_subscription_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle actual subscription cancellation."""
+    from services.payment_service import cancel_user_subscription
+    from db.connection import get_pool
+    
+    query = update.callback_query
+    await query.answer()
+    user_id = update.effective_user.id
+    
+    db_pool = get_pool()
+    success = await cancel_user_subscription(user_id, db_pool)
+    
+    if success:
+        logger.info(f"User {user_id} cancelled their subscription.")
+        await query.edit_message_text(
+            "✅ *Subscription Cancelled*\n\n"
+            "Your Applixy Pro subscription has been cancelled and will not renew\\.\n"
+            "You can continue using Pro features until your current cycle ends\\.",
+            parse_mode="MarkdownV2",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Back to Settings", callback_data="menu_settings")]])
+        )
+    else:
+        await query.edit_message_text(
+            "❌ Could not cancel your subscription at this time\\. Please contact support\\.",
+            parse_mode="MarkdownV2",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Back to Settings", callback_data="menu_settings")]])
+        )

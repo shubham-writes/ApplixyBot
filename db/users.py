@@ -216,6 +216,30 @@ async def update_user_plan(
         return dict(row) if row else None
 
 
+async def update_user_subscription(
+    telegram_id: int, plan: str, expires_at: datetime | None,
+    customer_id: str = None, subscription_id: str = None, status: str = 'active'
+) -> dict:
+    """Update user subscription and razorpay details."""
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            UPDATE users
+            SET plan = $2, plan_expires_at = $3, 
+                razorpay_customer_id = COALESCE($4, razorpay_customer_id),
+                razorpay_subscription_id = COALESCE($5, razorpay_subscription_id),
+                subscription_status = $6,
+                updated_at = NOW()
+            WHERE telegram_id = $1
+            RETURNING *
+            """,
+            telegram_id, plan, expires_at, customer_id, subscription_id, status
+        )
+        logger.info(f"User {telegram_id} subscription updated to {status} (Plan: {plan})")
+        return dict(row) if row else None
+
+
 async def reset_monthly_counters() -> int:
     """Reset cover letter counters for all users. Returns count of users reset."""
     pool = get_pool()

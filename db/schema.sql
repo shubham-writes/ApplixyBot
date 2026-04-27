@@ -22,7 +22,23 @@ CREATE TABLE IF NOT EXISTS users (
     auto_applies_reset  DATE DEFAULT CURRENT_DATE,   -- when counter was last reset
     is_onboarded     BOOLEAN DEFAULT FALSE,          -- completed onboarding flow
     created_at       TIMESTAMPTZ DEFAULT NOW(),
-    updated_at       TIMESTAMPTZ DEFAULT NOW()
+    updated_at       TIMESTAMPTZ DEFAULT NOW(),
+    razorpay_customer_id     TEXT,
+    razorpay_subscription_id TEXT,
+    subscription_status      TEXT
+);
+
+-- Pricing Configuration
+CREATE TABLE IF NOT EXISTS pricing_config (
+    id                   SERIAL PRIMARY KEY,
+    early_adopter_price  INT DEFAULT 199,
+    regular_price        INT DEFAULT 499,
+    early_adopter_slots  INT DEFAULT 200,
+    slots_filled         INT DEFAULT 0,
+    early_adopter_active BOOLEAN DEFAULT TRUE,
+    launch_date          TIMESTAMPTZ DEFAULT NOW(),
+    razorpay_early_plan_id TEXT,
+    razorpay_reg_plan_id   TEXT
 );
 
 -- Jobs cache table

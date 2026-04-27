@@ -7,7 +7,7 @@ from loguru import logger
 
 from db.users import get_user
 from db.connection import get_pool
-from services.payment_service import create_payment_link
+from services.payment_service import create_subscription_link
 from services.pricing_service import get_current_pricing
 from utils import keyboards, messages
 from utils.helpers import escape_md
@@ -77,9 +77,10 @@ async def checkout_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         is_early = pricing["is_early_adopter_active"]
         amount = pricing["current_price"]
 
-        url = await create_payment_link(
+        url = await create_subscription_link(
             plan="pro",
             telegram_id=user_id,
+            db_pool=db_pool,
             amount=amount,
             is_early_adopter=is_early,
         )

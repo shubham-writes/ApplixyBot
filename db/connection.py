@@ -60,9 +60,16 @@ async def init_db() -> asyncpg.Pool:
                     early_adopter_slots  INT DEFAULT 200,
                     slots_filled         INT DEFAULT 0,
                     early_adopter_active BOOLEAN DEFAULT TRUE,
-                    launch_date          TIMESTAMPTZ DEFAULT NOW()
+                    launch_date          TIMESTAMPTZ DEFAULT NOW(),
+                    razorpay_early_plan_id TEXT,
+                    razorpay_reg_plan_id   TEXT
                 );
             """)
+            await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS razorpay_customer_id TEXT;")
+            await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS razorpay_subscription_id TEXT;")
+            await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_status TEXT;")
+            await conn.execute("ALTER TABLE pricing_config ADD COLUMN IF NOT EXISTS razorpay_early_plan_id TEXT;")
+            await conn.execute("ALTER TABLE pricing_config ADD COLUMN IF NOT EXISTS razorpay_reg_plan_id TEXT;")
             await conn.execute("""
                 INSERT INTO pricing_config (
                     early_adopter_price, regular_price, early_adopter_slots,

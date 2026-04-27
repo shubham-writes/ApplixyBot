@@ -120,13 +120,12 @@ async def telegram_webhook(request: Request):
 
 @app.post("/razorpay-webhook")
 async def razorpay_webhook(request: Request):
-    """Handle successful subscription payments."""
+    """Handle subscription events from Razorpay."""
     from services.payment_service import verify_webhook_signature, extract_payment_info
-    from db.users import update_user_plan
+    from db.users import update_user_subscription
     from datetime import datetime, timezone
-    from dateutil.relativedelta import relativedelta # For easily adding 1 month
+    from dateutil.relativedelta import relativedelta
 
-    # Verify Signature
     signature = request.headers.get("x-razorpay-signature")
     payload = await request.body()
 
@@ -135,76 +134,56 @@ async def razorpay_webhook(request: Request):
         raise HTTPException(status_code=400, detail="Invalid signature")
 
     data = await request.json()
-    
-    # We only care about payment.captured or payment_link.paid
     event = data.get("event")
-    if event not in ("payment.captured", "payment_link.paid"):
+    
+    # We care about subscription events
+    if event not in ("subscription.charged", "subscription.cancelled", "subscription.halted", "payment.captured", "payment_link.paid"):
         return {"status": "ignored", "event": event}
 
-    # Extract user info
     payment_info = extract_payment_info(data)
     if not payment_info:
-        logger.error(f"Could not extract telegram_id from payment event: {data}")
+        logger.error(f"Could not extract telegram_id from event: {data}")
         return {"status": "error", "message": "Missing reference data"}
 
     telegram_id = payment_info["telegram_id"]
     plan = payment_info["plan"]
+    sub_id = payment_info.get("sub_id")
+    customer_id = payment_info.get("customer_id")
 
-    # Check early adopter flag from payment notes
-    notes = {}
-    try:
-        entity = data.get("payload", {}).get("payment", {}).get("entity", {})
-        notes = entity.get("notes", {})
-        if not notes:
-            entity = data.get("payload", {}).get("payment_link", {}).get("entity", {})
-            notes = entity.get("notes", {})
-    except Exception:
-        pass
-    is_early_adopter = notes.get("is_early_adopter") == "true"
+    if event in ("subscription.charged", "payment.captured", "payment_link.paid"):
+        # Calculate expiration (1 month from now)
+        expires_at = datetime.now(timezone.utc) + relativedelta(months=1)
+        await update_user_subscription(telegram_id, plan, expires_at, customer_id, sub_id, 'active')
+        logger.info(f"Subscription charged/activated for user {telegram_id}")
 
-    # Calculate expiration (1 month from now)
-    expires_at = datetime.now(timezone.utc) + relativedelta(months=1)
-
-    # Upgrade user in DB
-    await update_user_plan(telegram_id, plan, expires_at)
-
-    # Mark early adopter and increment slots if applicable
-    if is_early_adopter:
-        from services.pricing_service import increment_slots_filled
-        from db.connection import get_pool
-        db_pool = get_pool()
+        # Notify user via bot
         try:
-            await db_pool.execute("""
-                UPDATE users
-                SET is_early_adopter = TRUE
-                WHERE telegram_id = $1
-            """, telegram_id)
-            await increment_slots_filled(db_pool)
-            logger.info(f"Early adopter slot incremented for user {telegram_id}")
+            from utils.helpers import escape_md
+            amount = data.get("payload", {}).get("payment", {}).get("entity", {}).get("amount", 0) / 100
+            if amount == 0:
+                amount = data.get("payload", {}).get("subscription", {}).get("entity", {}).get("total_count", 0) # Just fallback if we don't have it
+            
+            await bot_app.bot.send_message(
+                chat_id=telegram_id,
+                text=(
+                    f"🎉 *You're now on Pro\\!*\n\n"
+                    f"Valid until: {escape_md(expires_at.strftime('%B %d, %Y'))}\n\n"
+                    "✅ Unlimited jobs\n"
+                    "✅ 10 cover letters/day\n"
+                    "✅ Full match scores\n"
+                    "✅ 5 ATS checks/day\n\n"
+                    "Type /menu to explore your new features\\."
+                ),
+                parse_mode="MarkdownV2"
+            )
         except Exception as e:
-            logger.error(f"Failed to mark early adopter for {telegram_id}: {e}")
+            logger.error(f"Failed to notify user {telegram_id} of upgrade: {e}")
 
-    # Notify user via bot
-    try:
-        from utils.helpers import escape_md
-        amount = data.get("payload", {}).get("payment", {}).get("entity", {}).get("amount", 0) / 100
-        early_tag = " 🔒 Early Adopter price locked\\!" if is_early_adopter else ""
-        await bot_app.bot.send_message(
-            chat_id=telegram_id,
-            text=(
-                f"🎉 *You're now on Pro\\!*\n\n"
-                f"Amount paid: ₹{int(amount)}{escape_md(early_tag)}\n"
-                f"Valid until: {escape_md(expires_at.strftime('%B %d, %Y'))}\n\n"
-                "✅ Unlimited jobs\n"
-                "✅ 10 cover letters/day\n"
-                "✅ Full match scores\n"
-                "✅ 5 ATS checks/day\n\n"
-                "Type /menu to explore your new features\\."
-            ),
-            parse_mode="MarkdownV2"
-        )
-    except Exception as e:
-        logger.error(f"Failed to notify user {telegram_id} of upgrade: {e}")
+    elif event in ("subscription.cancelled", "subscription.halted"):
+        # The user's subscription won't auto-renew. We keep the current plan_expires_at.
+        # But we update the status so the UI knows it's cancelled.
+        await update_user_subscription(telegram_id, plan, None, customer_id, sub_id, 'cancelled')
+        logger.info(f"Subscription {event} for user {telegram_id}")
 
     return {"status": "ok"}
 
